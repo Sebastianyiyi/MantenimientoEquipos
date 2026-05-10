@@ -35,12 +35,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<IAuthService, AuthAppService>();
 builder.Services.AddHttpClient();
-
+builder.Services.AddCors();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseCors(policy => policy
+    .WithOrigins("http://localhost:5173")
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+);
 
 if (app.Environment.IsDevelopment())
 {
