@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useMsal } from '@azure/msal-react'
+import { loginRequest } from '../../authConfig'
+import api from '../../services/api'
 import './Login.css'
 
 export default function Login() {
@@ -10,9 +13,19 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const { instance } = useMsal()
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setError('')
+  }
+
+  const handleMicrosoft = async () => {
+    try {
+      await instance.loginRedirect(loginRequest)
+    } catch (err) {
+      setError('Error al autenticar con Microsoft. Intenta de nuevo.')
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -41,8 +54,8 @@ export default function Login() {
         {/* Logo */}
         <div className="login-logo">
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <rect width="40" height="40" rx="10" fill="#C0191F"/>
-            <path d="M10 20h20M20 10v20" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+            <rect width="40" height="40" rx="10" fill="#C0191F" />
+            <path d="M10 20h20M20 10v20" stroke="white" strokeWidth="3" strokeLinecap="round" />
           </svg>
           <div>
             <h1 className="login-brand">FISEI <span>UTA</span></h1>
@@ -92,12 +105,12 @@ export default function Login() {
 
         <div className="login-separator"><span>o</span></div>
 
-        <button className="btn-microsoft" type="button">
+        <button className="btn-microsoft" type="button" onClick={handleMicrosoft}>
           <svg width="18" height="18" viewBox="0 0 21 21" fill="none">
-            <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-            <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-            <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-            <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+            <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+            <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+            <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+            <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
           </svg>
           Continuar con Microsoft 365
         </button>
