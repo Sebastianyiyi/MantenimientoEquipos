@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="LocationService.API/LocationService.API.csproj" />
+  <Project Path="LocationService.Application/LocationService.Application.csproj" />
+  <Project Path="LocationService.Domain/LocationService.Domain.csproj" />
+  <Project Path="LocationService.Infrastructure/LocationService.Infrastructure.csproj" />
+</Solution>
