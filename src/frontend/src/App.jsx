@@ -7,11 +7,13 @@ import MsalRedirectHandler from './components/MsalRedirectHandler'
 import Login from './pages/auth/Login'
 import Dashboard from './pages/dashboard/Dashboard'
 import Equipos from './pages/equipos/Equipos'
+import Catalogos from './pages/catalogos/Catalogos'
+import Importar from './pages/importar/Importar'
 
 function App() {
   return (
     <AuthProvider>
-      <MsalRedirectHandler /> {/* ← Aquí maneja el redirect */}
+      <MsalRedirectHandler />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
@@ -19,6 +21,8 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
+            <Route path="/catalogos" element={<Catalogos />} />
+            <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
