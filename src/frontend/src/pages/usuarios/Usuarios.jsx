@@ -13,6 +13,9 @@ export default function Usuarios() {
   const [editRole, setEditRole] = useState('')
   const [saving, setSaving] = useState(false)
 
+  console.log('[Usuarios] token:', localStorage.getItem('token'))
+  console.log('[Usuarios] user:', localStorage.getItem('user'))
+
   useEffect(() => {
     loadUsers()
   }, [])
@@ -20,10 +23,15 @@ export default function Usuarios() {
   const loadUsers = async () => {
     try {
       setLoading(true)
+      setError('')
       const res = await userApi.get('/users')
       setUsers(res.data)
-    } catch {
-      setError('No se pudo cargar la lista de usuarios.')
+    } catch (err) {
+      console.error('[Usuarios] loadUsers error', {
+        status: err.response?.status,
+        data: err.response?.data,
+      })
+      setError(`No se pudo cargar la lista de usuarios. (${err.response?.status ?? 'sin respuesta'})`)
     } finally {
       setLoading(false)
     }
@@ -37,11 +45,25 @@ export default function Usuarios() {
   const handleSaveRole = async (userId) => {
     setSaving(true)
     try {
+      setError('')
       const res = await userApi.put(`/users/${userId}/role`, { role: editRole })
       setUsers(prev => prev.map(u => u.id === userId ? res.data : u))
       setEditingId(null)
-    } catch {
-      setError('Error al actualizar el rol.')
+    } catch (err) {
+      console.error('[Usuarios] handleSaveRole error', {
+        status: err.response?.status,
+        data: err.response?.data,
+        userId,
+        role: editRole,
+      })
+
+      if (err.response?.status === 403) {
+        setError('No tienes permisos para cambiar el rol de este usuario.')
+      } else if (err.response?.status === 401) {
+        setError('Tu sesión no es válida o expiró al intentar actualizar el rol.')
+      } else {
+        setError(`Error al actualizar el rol. (${err.response?.status ?? 'sin respuesta'})`)
+      }
     } finally {
       setSaving(false)
     }
@@ -49,10 +71,23 @@ export default function Usuarios() {
 
   const handleToggleActive = async (userId) => {
     try {
+      setError('')
       const res = await userApi.put(`/users/${userId}/toggle-active`)
       setUsers(prev => prev.map(u => u.id === userId ? res.data : u))
-    } catch {
-      setError('Error al cambiar el estado del usuario.')
+    } catch (err) {
+      console.error('[Usuarios] handleToggleActive error', {
+        status: err.response?.status,
+        data: err.response?.data,
+        userId,
+      })
+
+      if (err.response?.status === 403) {
+        setError('No tienes permisos para cambiar el estado de este usuario.')
+      } else if (err.response?.status === 401) {
+        setError('Tu sesión no es válida o expiró al cambiar el estado del usuario.')
+      } else {
+        setError(`Error al cambiar el estado del usuario. (${err.response?.status ?? 'sin respuesta'})`)
+      }
     }
   }
 

@@ -25,15 +25,14 @@ export default function Dashboard() {
 
       {loading ? <p>Cargando estadísticas...</p> : stats ? (
         <>
-          {/* Cards de stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <StatCard label="Total Equipos" value={stats.total} color="#3b82f6" icon="🖥️" />
-            <StatCard label="Activos" value={stats.activos} color="#16a34a" icon="✅" />
-            <StatCard label="En Mantenimiento" value={stats.enMantenimiento} color="#d97706" icon="🔧" />
-            <StatCard label="Dados de Baja" value={stats.dadosDeBaja} color="#c0191f" icon="❌" />
+            <StatCard label="Total Equipos"     value={stats.total}            color="#3b82f6" icon="🖥️" />
+            <StatCard label="Activos"            value={stats.activos}          color="#16a34a" icon="✅" />
+            <StatCard label="En Mantenimiento"   value={stats.enMantenimiento}  color="#d97706" icon="🔧" />
+            <StatCard label="En Pausa"           value={stats.enPausa ?? 0}     color="#7c3aed" icon="⏸️" />
+            <StatCard label="Dados de Baja"      value={stats.dadosDeBaja}      color="#c0191f" icon="❌" />
           </div>
 
-          {/* Por tipo */}
           {stats.porTipo?.length > 0 && (
             <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', border: '1px solid #e5e7eb', marginBottom: '1.5rem' }}>
               <h3 style={{ marginTop: 0 }}>Equipos por Tipo</h3>
@@ -57,14 +56,15 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Accesos rápidos */}
           <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', border: '1px solid #e5e7eb' }}>
             <h3 style={{ marginTop: 0 }}>Accesos Rápidos</h3>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <QuickLink href="/equipos" icon="🖥️" label="Registrar Equipo" />
-              <QuickLink href="/importar" icon="📤" label="Importar CSV" />
+              <QuickLink href="/equipos"   icon="🖥️" label="Registrar Equipo" />
+              <QuickLink href="/importar"  icon="📤" label="Importar CSV" />
               <QuickLink href="/catalogos" icon="📋" label="Catálogos" />
-              {user?.rol === 'Administrador' && <QuickLink href="/usuarios" icon="👥" label="Gestión de Usuarios" />}
+              {user?.role === 'Administrador' && (
+                <QuickLink href="/usuarios" icon="👥" label="Gestión de Usuarios" />
+              )}
             </div>
           </div>
         </>

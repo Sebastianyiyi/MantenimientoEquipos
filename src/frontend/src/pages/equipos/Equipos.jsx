@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { equipmentApi, locationApi } from '../../services/api'
 
-const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
+const STATUSES = ['Activo', 'En mantenimiento', 'En pausa', 'Dado de baja']
 
 export default function Equipos() {
   const [equipments, setEquipments] = useState([])
@@ -13,15 +13,22 @@ export default function Equipos() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [showDetail, setShowDetail] = useState(null)
-  const [formMode, setFormMode] = useState('unitario') // 'unitario' | 'lote'
+  const [formMode, setFormMode] = useState('unitario') // 'unitario' | 'lote' | 'activo'
   const [saving, setSaving] = useState(false)
 
   const emptyForm = {
-    code: '', brand: '', model: '', serialNumber: '',
+    code: '',
+    brand: '',
+    model: '',
+    serialNumber: '',
     equipmentTypeId: '',
+    locationId: '',
+    responsibleUserId: '',
+    responsibleName: '',
     attributes: [],
     purchase: { purchaseDate: '', price: '', supplier: '', invoiceNumber: '', notes: '' }
   }
+
   const [form, setForm] = useState(emptyForm)
 
   // Lote
@@ -84,6 +91,9 @@ export default function Equipos() {
         model: form.model,
         serialNumber: form.serialNumber,
         equipmentTypeId: form.equipmentTypeId,
+        locationId: form.locationId || null,
+        responsibleUserId: form.responsibleUserId || null,
+        responsibleName: form.responsibleName || null,
         attributes: form.attributes.filter(a => a.key && a.value),
         purchase: form.purchase.purchaseDate ? {
           purchaseDate: form.purchase.purchaseDate,
@@ -108,9 +118,16 @@ export default function Equipos() {
     setSaving(true)
     try {
       const res = await equipmentApi.post('/equipments/batch', batchRows.map(r => ({
-        code: r.code, brand: r.brand, model: r.model,
-        serialNumber: r.serialNumber, equipmentTypeId: r.equipmentTypeId,
-        attributes: [], purchase: null
+        code: r.code,
+        brand: r.brand,
+        model: r.model,
+        serialNumber: r.serialNumber,
+        equipmentTypeId: r.equipmentTypeId,
+        locationId: r.locationId || null,
+        responsibleUserId: r.responsibleUserId || null,
+        responsibleName: r.responsibleName || null,
+        attributes: [],
+        purchase: null
       })))
       const failures = res.data.filter(r => !r.success)
       if (failures.length > 0)
@@ -142,8 +159,9 @@ export default function Equipos() {
           <p style={{ margin: 0, color: '#888' }}>Registro y control del inventario tecnológico</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn-primary" onClick={() => openNew('unitario')}>+ Registrar Equipo</button>
-          <button className="btn-secondary" onClick={() => openNew('lote')}>+ Registrar Lote</button>
+          <button className="btn-primary" onClick={() => openNew('unitario')}>+ Unitario</button>
+          <button className="btn-secondary" onClick={() => openNew('lote')}>+ Por Lote</button>
+          <button className="btn-secondary" onClick={() => openNew('activo')}>+ Activo Institucional</button>
         </div>
       </div>
 
@@ -181,6 +199,7 @@ export default function Equipos() {
                 <th style={th}>N° Serie</th>
                 <th style={th}>Tipo</th>
                 <th style={th}>Estado</th>
+                <th style={th}>Responsable</th>
                 <th style={th}>Acciones</th>
               </tr>
             </thead>
@@ -199,19 +218,27 @@ export default function Equipos() {
                         padding: '0.2rem 0.5rem',
                         borderRadius: '4px',
                         border: '1px solid #ddd',
-                        background: eq.status === 'Activo' ? '#dcfce7' : eq.status === 'En mantenimiento' ? '#fef9c3' : '#fee2e2'
+                        background:
+                          eq.status === 'Activo'
+                            ? '#dcfce7'
+                            : eq.status === 'En mantenimiento'
+                              ? '#fef9c3'
+                              : eq.status === 'En pausa'
+                                ? '#ede9fe'
+                                : '#fee2e2'
                       }}
                     >
                       {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </td>
+                  <td style={td}>{eq.responsibleName ?? '—'}</td>
                   <td style={td}>
                     <button className="btn-icon" onClick={() => setShowDetail(eq)} title="Ver ficha">👁️</button>
                   </td>
                 </tr>
               ))}
               {equipments.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No hay equipos registrados.</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>No hay equipos registrados.</td></tr>
               )}
             </tbody>
           </table>
@@ -224,7 +251,11 @@ export default function Equipos() {
           <div style={{ ...modal, maxWidth: formMode === 'lote' ? '900px' : '600px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}>
-                {formMode === 'unitario' ? 'Registrar Equipo' : 'Registrar por Lote'}
+                {formMode === 'unitario'
+                  ? 'Registrar Equipo'
+                  : formMode === 'activo'
+                    ? 'Registrar Activo Institucional'
+                    : 'Registrar por Lote'}
               </h3>
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
@@ -244,6 +275,29 @@ export default function Equipos() {
                     {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
+
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={labelStyle}>Ubicación (Laboratorio)</label>
+                  <select
+                    value={form.locationId}
+                    onChange={e => setForm({ ...form, locationId: e.target.value })}
+                    style={inputStyle}
+                  >
+                    <option value="">Sin asignar</option>
+                    {labs.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.name} — {l.building || 'Sin edificio'} {l.floor || ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <Field
+                  label="Responsable"
+                  value={form.responsibleName}
+                  onChange={v => setForm({ ...form, responsibleName: v })}
+                  placeholder="Nombre del responsable"
+                />
 
                 <hr style={{ margin: '1rem 0', borderColor: '#f0f0f0' }} />
                 <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Datos de Compra</p>
@@ -266,6 +320,58 @@ export default function Equipos() {
                     <button onClick={() => removeAttr(i)} style={{ background: 'none', border: 'none', color: '#c0191f', cursor: 'pointer' }}>✕</button>
                   </div>
                 ))}
+              </>
+            ) : formMode === 'activo' ? (
+              <>
+                <p style={{ color: '#555', fontSize: '0.85rem', background: '#fef9c3', padding: '0.5rem 0.75rem', borderRadius: '6px', marginBottom: '1rem' }}>
+                  Registro como Activo Institucional: incluye el código de activo fijo asignado por la institución.
+                </p>
+                <div style={grid2}>
+                  <Field label="Código de Activo Fijo *" value={form.code} onChange={v => setForm({ ...form, code: v })} placeholder="ACT-FISEI-2024-0123" />
+                  <Field label="N° Serie *" value={form.serialNumber} onChange={v => setForm({ ...form, serialNumber: v })} placeholder="SN123456" />
+                  <Field label="Marca *" value={form.brand} onChange={v => setForm({ ...form, brand: v })} placeholder="HP, Dell..." />
+                  <Field label="Modelo *" value={form.model} onChange={v => setForm({ ...form, model: v })} placeholder="ProBook 450" />
+                </div>
+
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={labelStyle}>Tipo de Equipo *</label>
+                  <select value={form.equipmentTypeId} onChange={e => setForm({ ...form, equipmentTypeId: e.target.value })} style={inputStyle}>
+                    <option value="">Seleccione...</option>
+                    {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <label style={labelStyle}>Ubicación (Laboratorio)</label>
+                  <select
+                    value={form.locationId}
+                    onChange={e => setForm({ ...form, locationId: e.target.value })}
+                    style={inputStyle}
+                  >
+                    <option value="">Sin asignar</option>
+                    {labs.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.name} — {l.building || 'Sin edificio'} {l.floor || ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <Field
+                  label="Responsable"
+                  value={form.responsibleName}
+                  onChange={v => setForm({ ...form, responsibleName: v })}
+                  placeholder="Nombre del responsable"
+                />
+
+                <hr style={{ margin: '1rem 0', borderColor: '#f0f0f0' }} />
+                <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Datos de Compra</p>
+                <div style={grid2}>
+                  <Field label="Fecha de compra" type="date" value={form.purchase.purchaseDate} onChange={v => setForm({ ...form, purchase: { ...form.purchase, purchaseDate: v } })} />
+                  <Field label="Precio" type="number" value={form.purchase.price} onChange={v => setForm({ ...form, purchase: { ...form.purchase, price: v } })} placeholder="0.00" />
+                  <Field label="Proveedor / Responsable Institucional" value={form.purchase.supplier} onChange={v => setForm({ ...form, purchase: { ...form.purchase, supplier: v } })} />
+                  <Field label="N° Factura" value={form.purchase.invoiceNumber} onChange={v => setForm({ ...form, purchase: { ...form.purchase, invoiceNumber: v } })} />
+                </div>
               </>
             ) : (
               <>
@@ -317,7 +423,7 @@ export default function Equipos() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
               <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
-              <button className="btn-primary" onClick={formMode === 'unitario' ? handleSaveUnitario : handleSaveLote} disabled={saving}>
+              <button className="btn-primary" onClick={formMode === 'lote' ? handleSaveLote : handleSaveUnitario} disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -340,6 +446,8 @@ export default function Equipos() {
               <Info label="Modelo" value={showDetail.model} />
               <Info label="N° Serie" value={showDetail.serialNumber} />
               <Info label="Estado" value={showDetail.status} />
+              <Info label="Ubicación" value={labs.find(l => l.id === showDetail.locationId)?.name ?? '—'} />
+              <Info label="Responsable" value={showDetail.responsibleName} />
             </div>
             {showDetail.purchase && (
               <>

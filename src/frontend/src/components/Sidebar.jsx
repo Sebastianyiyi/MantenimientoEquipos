@@ -25,7 +25,7 @@ export default function Sidebar() {
   }
 
   const visibleItems = navItems.filter(item =>
-    !item.roles || (user?.rol && item.roles.includes(user.rol))
+    !item.roles || (user?.role && item.roles.includes(user.role))
   )
 
   return (

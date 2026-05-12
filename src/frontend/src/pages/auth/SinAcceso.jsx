@@ -19,7 +19,7 @@ export default function SinAcceso() {
         <p>No tienes permisos para acceder a esta página.</p>
         {user && (
           <p className="sin-acceso-role">
-            Tu rol actual es: <strong>{user.rol}</strong>
+            Tu rol actual es: <strong>{user.role}</strong>
           </p>
         )}
         <div className="sin-acceso-actions">

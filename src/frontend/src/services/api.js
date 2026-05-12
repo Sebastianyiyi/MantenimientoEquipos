@@ -1,26 +1,21 @@
 import axios from 'axios'
 
-// AuthService
 export const authApi = axios.create({
   baseURL: 'http://localhost:5000/api',
 })
 
-// UserService
 export const userApi = axios.create({
   baseURL: 'http://localhost:5001/api',
 })
 
-// EquipmentService
 export const equipmentApi = axios.create({
   baseURL: 'http://localhost:5002/api',
 })
 
-// LocationService
 export const locationApi = axios.create({
   baseURL: 'http://localhost:5003/api',
 })
 
-// MaintenanceService
 export const maintenanceApi = axios.create({
   baseURL: 'http://localhost:5004/api',
 })
@@ -29,16 +24,32 @@ const addAuthInterceptor = (instance) => {
   instance.interceptors.request.use(config => {
     const token = localStorage.getItem('token')
     if (token) config.headers.Authorization = `Bearer ${token}`
+
+    console.log('[REQ]', config.baseURL + config.url, {
+      hasToken: !!token,
+      authHeader: config.headers.Authorization,
+    })
+
     return config
   })
+
   instance.interceptors.response.use(
     res => res,
     err => {
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
+      const status = err.response?.status
+      const url = err.config?.baseURL + err.config?.url
+
+      console.error('[API ERROR]', {
+        status,
+        url,
+        data: err.response?.data,
+      })
+
+      if (status === 403) {
+        window.location.href = '/sin-acceso'
       }
+
+      // TEMPORAL: no borrar sesión ni redirigir en 401
       return Promise.reject(err)
     }
   )
