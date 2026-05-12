@@ -15,7 +15,16 @@ export const equipmentApi = axios.create({
   baseURL: 'http://localhost:5002/api',
 })
 
-// Interceptor reutilizable: agrega JWT en cada request
+// LocationService
+export const locationApi = axios.create({
+  baseURL: 'http://localhost:5003/api',
+})
+
+// MaintenanceService
+export const maintenanceApi = axios.create({
+  baseURL: 'http://localhost:5004/api',
+})
+
 const addAuthInterceptor = (instance) => {
   instance.interceptors.request.use(config => {
     const token = localStorage.getItem('token')
@@ -38,6 +47,7 @@ const addAuthInterceptor = (instance) => {
 addAuthInterceptor(authApi)
 addAuthInterceptor(userApi)
 addAuthInterceptor(equipmentApi)
+addAuthInterceptor(locationApi)
+addAuthInterceptor(maintenanceApi)
 
-// Default export para compatibilidad con código existente (apunta a AuthService)
 export default authApi

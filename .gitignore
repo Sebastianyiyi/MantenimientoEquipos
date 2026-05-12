@@ -485,3 +485,12 @@ $RECYCLE.BIN/
 /appsettings.Development.json
 appsettings.*.json
 !appsettings.json
+
+# Ignorar todos los appsettings de desarrollo
+**/appsettings.Development.json
+
+# Ignorar cualquier environment específico
+*/appsettings..json
+
+# PERMITIR el base
+!**/appsettings.json
