@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
+import { equipmentApi, locationApi } from '../../services/api'
 import './Catalogos.css'
-
-const EQUIPMENT_API = 'http://localhost:5120/api/equipment-types'
-const LOCATION_API  = 'http://localhost:5265/api/laboratorios'
 
 export default function Catalogos() {
   const [tab, setTab] = useState('tipos')
@@ -28,7 +26,7 @@ export default function Catalogos() {
       </div>
 
       <div className="catalogos-content">
-        {tab === 'tipos'       && <TiposEquipo />}
+        {tab === 'tipos'        && <TiposEquipo />}
         {tab === 'laboratorios' && <Laboratorios />}
       </div>
     </div>
@@ -48,11 +46,10 @@ function TiposEquipo() {
   const load = async () => {
     try {
       setLoading(true)
-      const res = await fetch(EQUIPMENT_API)
-      if (!res.ok) throw new Error('Error al cargar tipos de equipo')
-      setItems(await res.json())
+      const res = await equipmentApi.get('/equipment-types')
+      setItems(res.data)
     } catch (e) {
-      setError(e.message)
+      setError('Error al cargar tipos de equipo')
     } finally {
       setLoading(false)
     }
@@ -76,19 +73,15 @@ function TiposEquipo() {
     if (!form.name.trim()) return alert('El nombre es obligatorio.')
     setSaving(true)
     try {
-      const url    = editing ? `${EQUIPMENT_API}/${editing.id}` : EQUIPMENT_API
-      const method = editing ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: form.name, description: form.description })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message ?? 'Error al guardar')
+      if (editing) {
+        await equipmentApi.put(`/equipment-types/${editing.id}`, form)
+      } else {
+        await equipmentApi.post('/equipment-types', form)
+      }
       setShowForm(false)
       load()
     } catch (e) {
-      alert(e.message)
+      alert(e.response?.data?.message ?? 'Error al guardar')
     } finally {
       setSaving(false)
     }
@@ -97,12 +90,10 @@ function TiposEquipo() {
   const handleDelete = async (item) => {
     if (!confirm(`¿Eliminar "${item.name}"?`)) return
     try {
-      const res = await fetch(`${EQUIPMENT_API}/${item.id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message ?? 'Error al eliminar')
+      await equipmentApi.delete(`/equipment-types/${item.id}`)
       load()
     } catch (e) {
-      alert(e.message)
+      alert(e.response?.data?.message ?? 'Error al eliminar')
     }
   }
 
@@ -190,11 +181,10 @@ function Laboratorios() {
   const load = async () => {
     try {
       setLoading(true)
-      const res = await fetch(LOCATION_API)
-      if (!res.ok) throw new Error('Error al cargar laboratorios')
-      setItems(await res.json())
+      const res = await locationApi.get('/laboratorios')
+      setItems(res.data)
     } catch (e) {
-      setError(e.message)
+      setError('Error al cargar laboratorios')
     } finally {
       setLoading(false)
     }
@@ -218,24 +208,16 @@ function Laboratorios() {
     if (!form.name.trim()) return alert('El nombre es obligatorio.')
     setSaving(true)
     try {
-      const url    = editing ? `${LOCATION_API}/${editing.id}` : LOCATION_API
-      const method = editing ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          building: form.building,
-          floor: form.floor,
-          capacity: Number(form.capacity)
-        })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message ?? 'Error al guardar')
+      const payload = { ...form, capacity: Number(form.capacity) }
+      if (editing) {
+        await locationApi.put(`/laboratorios/${editing.id}`, payload)
+      } else {
+        await locationApi.post('/laboratorios', payload)
+      }
       setShowForm(false)
       load()
     } catch (e) {
-      alert(e.message)
+      alert(e.response?.data?.message ?? 'Error al guardar')
     } finally {
       setSaving(false)
     }
@@ -244,12 +226,10 @@ function Laboratorios() {
   const handleDelete = async (item) => {
     if (!confirm(`¿Eliminar "${item.name}"?`)) return
     try {
-      const res = await fetch(`${LOCATION_API}/${item.id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message ?? 'Error al eliminar')
+      await locationApi.delete(`/laboratorios/${item.id}`)
       load()
     } catch (e) {
-      alert(e.message)
+      alert(e.response?.data?.message ?? 'Error al eliminar')
     }
   }
 
