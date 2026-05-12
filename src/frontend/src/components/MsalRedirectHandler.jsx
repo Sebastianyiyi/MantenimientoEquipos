@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,29 +8,53 @@ export default function MsalRedirectHandler() {
   const { instance } = useMsal()
   const { login } = useAuth()
   const navigate = useNavigate()
+  const redirectProcessedRef = useRef(false)
 
   useEffect(() => {
+    // Solo procesar UNA VEZ por sesión
+    if (redirectProcessedRef.current) {
+      return
+    }
+
     const handleRedirect = async () => {
       try {
         const result = await instance.handleRedirectPromise()
 
-        // ← LOG TEMPORAL para confirmar que llega aquí
         console.log('[MSAL] handleRedirectPromise result:', result)
 
         if (!result) {
-          console.log('[MSAL] No hubo redirect, revisando si ya hay sesión...')
+          console.log('[MSAL] No redirect, checking existing session...')
           return
         }
 
-        console.log('[MSAL] accessToken de Microsoft obtenido, intercambiando por JWT...')
+        // Marcar como procesado
+        redirectProcessedRef.current = true
+
+        console.log('[MSAL] Microsoft accessToken obtained, exchanging for JWT...')
 
         const res = await authApi.post('/auth/microsoft', {
           accessToken: result.accessToken
         })
 
-        console.log('[MSAL] Respuesta del backend:', res.data)
+        console.log('[MSAL] Backend response:', res.data)
 
         const data = res.data
+        
+        // Save token manually before calling login()
+        localStorage.setItem('token', data.accessToken)
+        localStorage.setItem('user', JSON.stringify({
+          fullName: data.fullName,
+          email: data.email,
+          role: data.role,
+        }))
+
+        console.log('[MSAL] Token saved to localStorage:', {
+          tokenSaved: !!localStorage.getItem('token'),
+          userSaved: !!localStorage.getItem('user'),
+          role: data.role
+        })
+
+        // Also call login() to update React state
         login(
           {
             fullName: data.fullName,
@@ -40,10 +64,10 @@ export default function MsalRedirectHandler() {
           data.accessToken
         )
 
-        console.log('[MSAL] Login exitoso, navegando a dashboard...')
+        console.log('[MSAL] Login successful, navigating to dashboard...')
         navigate('/dashboard')
       } catch (err) {
-        console.error('[MSAL] Error en redirect:', err)
+        console.error('[MSAL] Redirect error:', err)
         navigate('/login')
       }
     }

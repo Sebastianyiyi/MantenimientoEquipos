@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { equipmentApi } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -59,11 +60,11 @@ export default function Dashboard() {
           <div style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', border: '1px solid #e5e7eb' }}>
             <h3 style={{ marginTop: 0 }}>Accesos Rápidos</h3>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <QuickLink href="/equipos"   icon="🖥️" label="Registrar Equipo" />
-              <QuickLink href="/importar"  icon="📤" label="Importar CSV" />
-              <QuickLink href="/catalogos" icon="📋" label="Catálogos" />
+              <QuickLink to="/equipos"   icon="🖥️" label="Registrar Equipo" />
+              <QuickLink to="/importar"  icon="📤" label="Importar CSV" />
+              <QuickLink to="/catalogos" icon="📋" label="Catálogos" />
               {user?.role === 'Administrador' && (
-                <QuickLink href="/usuarios" icon="👥" label="Gestión de Usuarios" />
+                <QuickLink to="/usuarios" icon="👥" label="Gestión de Usuarios" />
               )}
             </div>
           </div>
@@ -89,9 +90,9 @@ function StatCard({ label, value, color, icon }) {
   )
 }
 
-function QuickLink({ href, icon, label }) {
+function QuickLink({ to, icon, label }) {
   return (
-    <a href={href} style={{
+    <Link to={to} style={{
       display: 'flex', alignItems: 'center', gap: '0.5rem',
       padding: '0.75rem 1.25rem', background: '#f9fafb',
       borderRadius: '8px', border: '1px solid #e5e7eb',
@@ -103,6 +104,6 @@ function QuickLink({ href, icon, label }) {
     >
       <span>{icon}</span>
       <span>{label}</span>
-    </a>
+    </Link>
   )
 }

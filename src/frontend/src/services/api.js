@@ -23,11 +23,16 @@ export const maintenanceApi = axios.create({
 const addAuthInterceptor = (instance) => {
   instance.interceptors.request.use(config => {
     const token = localStorage.getItem('token')
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    } else {
+      console.warn('[API WARN] No token found in localStorage for request:', config.url)
+    }
 
     console.log('[REQ]', config.baseURL + config.url, {
       hasToken: !!token,
-      authHeader: config.headers.Authorization,
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'NO TOKEN',
+      authHeader: config.headers.Authorization ? 'YES' : 'NO',
     })
 
     return config
