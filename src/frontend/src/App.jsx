@@ -5,10 +5,12 @@ import MainLayout from './components/MainLayout'
 import MsalRedirectHandler from './components/MsalRedirectHandler'
 
 import Login from './pages/auth/Login'
+import SinAcceso from './pages/auth/SinAcceso'
 import Dashboard from './pages/dashboard/Dashboard'
 import Equipos from './pages/equipos/Equipos'
 import Catalogos from './pages/catalogos/Catalogos'
 import Importar from './pages/importar/Importar'
+import Usuarios from './pages/usuarios/Usuarios'
 
 function App() {
   return (
@@ -16,6 +18,9 @@ function App() {
       <MsalRedirectHandler />
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/sin-acceso" element={<SinAcceso />} />
+
+        {/* Rutas protegidas - cualquier usuario autenticado */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -23,8 +28,14 @@ function App() {
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/catalogos" element={<Catalogos />} />
             <Route path="/importar" element={<Importar />} />
+
+            {/* Rutas solo para Administrador */}
+            <Route element={<ProtectedRoute roles={['Administrador']} />}>
+              <Route path="/usuarios" element={<Usuarios />} />
+            </Route>
           </Route>
         </Route>
+
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>

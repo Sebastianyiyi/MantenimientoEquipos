@@ -5,6 +5,7 @@ using AuthService.Application.Interfaces;
 using AuthService.Domain.Entities;
 using AuthService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace AuthService.Infrastructure.Services;
 
@@ -13,12 +14,14 @@ public class AuthAppService : IAuthService
     private readonly AuthDbContext _context;
     private readonly JwtService _jwtService;
     private readonly HttpClient _httpClient;
+    private readonly IConfiguration _config;
 
-    public AuthAppService(AuthDbContext context, JwtService jwtService, IHttpClientFactory httpClientFactory)
+    public AuthAppService(AuthDbContext context, JwtService jwtService, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         _context = context;
         _jwtService = jwtService;
         _httpClient = httpClientFactory.CreateClient();
+        _config = config;
     }
 
     public async Task<AuthResponseDto?> AuthenticateWithMicrosoftAsync(string microsoftAccessToken)
@@ -50,7 +53,8 @@ public class AuthAppService : IAuthService
 
         await _context.SaveChangesAsync();
 
-        var role = "Laboratorista";
+        // Consultar el rol real del usuario desde UserService
+        var role = await GetUserRoleAsync(microsoftUser.MicrosoftId, microsoftUser.Email, microsoftUser.FullName);
 
         var token = _jwtService.GenerateToken(
             session.Id.ToString(),
@@ -67,6 +71,48 @@ public class AuthAppService : IAuthService
             Role = role,
             ExpiresIn = 480 * 60
         };
+    }
+
+    /// <summary>
+    /// Consulta el rol real del usuario en UserService.
+    /// Si el usuario no existe allí aún, lo registra con rol Laboratorista por defecto.
+    /// </summary>
+    private async Task<string> GetUserRoleAsync(string microsoftId, string email, string fullName)
+    {
+        try
+        {
+            var userServiceUrl = _config["Services:UserServiceUrl"] ?? "http://localhost:5001";
+            var response = await _httpClient.GetAsync(
+                $"{userServiceUrl}/api/users/by-microsoft-id/{microsoftId}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var json = JsonDocument.Parse(content).RootElement;
+                if (json.TryGetProperty("role", out var roleProp))
+                    return roleProp.GetString() ?? "Laboratorista";
+            }
+
+            // Usuario no existe en UserService → registrarlo con rol Laboratorista
+            var createPayload = JsonSerializer.Serialize(new
+            {
+                microsoftId,
+                email,
+                fullName,
+                role = "Laboratorista"
+            });
+
+            await _httpClient.PostAsync(
+                $"{userServiceUrl}/api/users",
+                new StringContent(createPayload, System.Text.Encoding.UTF8, "application/json"));
+
+            return "Laboratorista";
+        }
+        catch
+        {
+            // Si UserService no responde, fallback seguro a Laboratorista
+            return "Laboratorista";
+        }
     }
 
     private async Task<MicrosoftUserDto?> GetMicrosoftUserAsync(string accessToken)

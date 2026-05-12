@@ -2,33 +2,42 @@ import { useEffect } from 'react'
 import { useMsal } from '@azure/msal-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import api from '../services/api'
+import { authApi } from '../services/api'
 
 export default function MsalRedirectHandler() {
   const { instance } = useMsal()
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    instance.handleRedirectPromise().then(async (response) => {
-      if (!response?.accessToken) return
-
+    const handleRedirect = async () => {
       try {
-        const res = await api.post('/Auth/microsoft', {
-          accessToken: response.accessToken
+        const result = await instance.handleRedirectPromise()
+        if (!result) return  // No hubo redirección de Microsoft
+
+        // Intercambiar token de Microsoft por JWT del sistema
+        const res = await authApi.post('/auth/microsoft', {
+          accessToken: result.accessToken
         })
+
         const data = res.data
         login(
-          { nombre: data.fullName, rol: data.role, email: data.email },
+          {
+            nombre: data.fullName,
+            email: data.email,
+            rol: data.role,
+          },
           data.accessToken
         )
-        navigate('/dashboard', { replace: true })
+        navigate('/dashboard')
       } catch (err) {
-        console.error('Error backend:', err)
-        navigate('/login', { replace: true })
+        console.error('Error en redirect de Microsoft:', err)
+        navigate('/login')
       }
-    })
-  }, [])
+    }
+
+    handleRedirect()
+  }, [instance])
 
   return null
 }

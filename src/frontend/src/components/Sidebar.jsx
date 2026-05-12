@@ -4,26 +4,30 @@ import { useMsal } from '@azure/msal-react'
 import './Sidebar.css'
 
 const navItems = [
-  { to: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard' },
-  { to: '/equipos', icon: 'monitor', label: 'Equipos' },
-  { to: '/importar', icon: 'upload', label: 'Importar' },
-  { to: '/catalogos', icon: 'list', label: 'Catálogos' },
+  { to: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', roles: null },
+  { to: '/equipos', icon: 'monitor', label: 'Gestión de Equipos', roles: null },
+  { to: '/importar', icon: 'upload', label: 'Importar', roles: null },
+  { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: null },
+  { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
 ]
 
 export default function Sidebar() {
-  const { logout } = useAuth()
-  const { instance } = useMsal()  // ← faltaba esto
+  const { user, logout } = useAuth()
+  const { instance } = useMsal()
 
   const handleLogout = () => {
     logout()
-
     const accounts = instance.getAllAccounts()
     accounts.forEach(account => {
       instance.clearCache({ account })
     })
-
     window.location.href = '/login'
   }
+
+  const visibleItems = navItems.filter(item =>
+    !item.roles || (user?.rol && item.roles.includes(user.rol))
+  )
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -37,7 +41,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map(({ to, icon, label }) => (
+        {visibleItems.map(({ to, icon, label }) => (
           <NavLink key={to} to={to} className={({ isActive }) =>
             `sidebar-link ${isActive ? 'active' : ''}`
           }>
@@ -47,7 +51,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* ← handleLogout en lugar de logout directo */}
       <button className="sidebar-logout" onClick={handleLogout}>
         <i data-lucide="log-out"></i>
         <span>Cerrar sesión</span>
