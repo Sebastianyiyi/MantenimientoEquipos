@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using AuthService.Application.DTOs;
 using AuthService.Application.Interfaces;
@@ -13,19 +14,20 @@ public class AuthAppService : IAuthService
 {
     private readonly AuthDbContext _context;
     private readonly JwtService _jwtService;
-    private readonly HttpClient _httpClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
 
     public AuthAppService(AuthDbContext context, JwtService jwtService, IHttpClientFactory httpClientFactory, IConfiguration config)
     {
         _context = context;
         _jwtService = jwtService;
-        _httpClient = httpClientFactory.CreateClient();
+        _httpClientFactory = httpClientFactory;
         _config = config;
     }
 
     public async Task<AuthResponseDto?> AuthenticateWithMicrosoftAsync(string microsoftAccessToken)
     {
+        // Cliente exclusivo para Microsoft Graph (con el token de Microsoft)
         var microsoftUser = await GetMicrosoftUserAsync(microsoftAccessToken);
         if (microsoftUser == null) return null;
 
@@ -53,7 +55,7 @@ public class AuthAppService : IAuthService
 
         await _context.SaveChangesAsync();
 
-        // Consultar el rol real del usuario desde UserService
+        // Cliente separado y limpio para UserService (sin headers de Microsoft)
         var role = await GetUserRoleAsync(microsoftUser.MicrosoftId, microsoftUser.Email, microsoftUser.FullName);
 
         var token = _jwtService.GenerateToken(
@@ -73,28 +75,28 @@ public class AuthAppService : IAuthService
         };
     }
 
-    /// <summary>
-    /// Consulta el rol real del usuario en UserService.
-    /// Si el usuario no existe allí aún, lo registra con rol Laboratorista por defecto.
-    /// </summary>
     private async Task<string> GetUserRoleAsync(string microsoftId, string email, string fullName)
     {
         try
         {
             var userServiceUrl = _config["Services:UserServiceUrl"] ?? "http://localhost:5001";
-            var response = await _httpClient.GetAsync(
+
+            // Cliente limpio sin ningún header de Authorization
+            var client = _httpClientFactory.CreateClient();
+
+            var getResponse = await client.GetAsync(
                 $"{userServiceUrl}/api/users/by-microsoft-id/{microsoftId}");
 
-            if (response.IsSuccessStatusCode)
+            if (getResponse.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
+                var content = await getResponse.Content.ReadAsStringAsync();
                 var json = JsonDocument.Parse(content).RootElement;
                 if (json.TryGetProperty("role", out var roleProp))
                     return roleProp.GetString() ?? "Laboratorista";
             }
 
-            // Usuario no existe en UserService → registrarlo con rol Laboratorista
-            var createPayload = JsonSerializer.Serialize(new
+            // Usuario no existe → crearlo con rol Laboratorista por defecto
+            var payload = JsonSerializer.Serialize(new
             {
                 microsoftId,
                 email,
@@ -102,25 +104,34 @@ public class AuthAppService : IAuthService
                 role = "Laboratorista"
             });
 
-            await _httpClient.PostAsync(
+            var postResponse = await client.PostAsync(
                 $"{userServiceUrl}/api/users",
-                new StringContent(createPayload, System.Text.Encoding.UTF8, "application/json"));
+                new StringContent(payload, Encoding.UTF8, "application/json"));
+
+            if (postResponse.IsSuccessStatusCode)
+            {
+                var content = await postResponse.Content.ReadAsStringAsync();
+                var json = JsonDocument.Parse(content).RootElement;
+                if (json.TryGetProperty("role", out var roleProp))
+                    return roleProp.GetString() ?? "Laboratorista";
+            }
 
             return "Laboratorista";
         }
         catch
         {
-            // Si UserService no responde, fallback seguro a Laboratorista
             return "Laboratorista";
         }
     }
 
-    private async Task<MicrosoftUserDto?> GetMicrosoftUserAsync(string accessToken)
+    private async Task<MicrosoftUserDto?> GetMicrosoftUserAsync(string microsoftAccessToken)
     {
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", accessToken);
+        // Cliente exclusivo para Graph, descartado después de usarse
+        var client = _httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", microsoftAccessToken);
 
-        var response = await _httpClient.GetAsync("https://graph.microsoft.com/v1.0/me");
+        var response = await client.GetAsync("https://graph.microsoft.com/v1.0/me");
         if (!response.IsSuccessStatusCode) return null;
 
         var content = await response.Content.ReadAsStringAsync();
