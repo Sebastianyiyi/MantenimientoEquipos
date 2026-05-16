@@ -8,7 +8,7 @@ public class RefreshToken
     public DateTime CreatedAt { get; set; }
     public bool IsRevoked { get; set; }
 
-    // Relación con UserSession
-    public Guid UserSessionId { get; set; }
-    public UserSession UserSession { get; set; } = null!;
+    // Relación con User
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
 }
