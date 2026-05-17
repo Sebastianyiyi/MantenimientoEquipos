@@ -11,10 +11,7 @@ export default function MsalRedirectHandler() {
   const redirectProcessedRef = useRef(false)
 
   useEffect(() => {
-    // Solo procesar UNA VEZ por sesión
-    if (redirectProcessedRef.current) {
-      return
-    }
+    if (redirectProcessedRef.current) return
 
     const handleRedirect = async () => {
       try {
@@ -23,12 +20,20 @@ export default function MsalRedirectHandler() {
         console.log('[MSAL] handleRedirectPromise result:', result)
 
         if (!result) {
-          console.log('[MSAL] No redirect, checking existing session...')
+          const accounts = instance.getAllAccounts()
+
+          if (accounts.length > 0 && !instance.getActiveAccount()) {
+            instance.setActiveAccount(accounts[0])
+          }
+
           return
         }
 
-        // Marcar como procesado
         redirectProcessedRef.current = true
+
+        if (result.account) {
+          instance.setActiveAccount(result.account)
+        }
 
         console.log('[MSAL] Microsoft accessToken obtained, exchanging for JWT...')
 
@@ -39,22 +44,7 @@ export default function MsalRedirectHandler() {
         console.log('[MSAL] Backend response:', res.data)
 
         const data = res.data
-        
-        // Save token manually before calling login()
-        localStorage.setItem('token', data.accessToken)
-        localStorage.setItem('user', JSON.stringify({
-          fullName: data.fullName,
-          email: data.email,
-          role: data.role,
-        }))
 
-        console.log('[MSAL] Token saved to localStorage:', {
-          tokenSaved: !!localStorage.getItem('token'),
-          userSaved: !!localStorage.getItem('user'),
-          role: data.role
-        })
-
-        // Also call login() to update React state
         login(
           {
             fullName: data.fullName,
@@ -65,10 +55,10 @@ export default function MsalRedirectHandler() {
         )
 
         console.log('[MSAL] Login successful, navigating to dashboard...')
-        navigate('/dashboard')
+        navigate('/dashboard', { replace: true })
       } catch (err) {
         console.error('[MSAL] Redirect error:', err)
-        navigate('/login')
+        navigate('/login', { replace: true })
       }
     }
 

@@ -15,13 +15,20 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const { instance } = useMsal()
 
-  const handleLogout = () => {
-    logout()
-    const accounts = instance.getAllAccounts()
-    accounts.forEach(account => {
-      instance.clearCache({ account })
-    })
-    window.location.href = '/login'
+  const handleLogout = async () => {
+    try {
+      logout()
+
+      const account = instance.getActiveAccount() || instance.getAllAccounts()[0]
+
+      await instance.logoutRedirect({
+        account,
+        postLogoutRedirectUri: 'http://localhost:5173/login',
+      })
+    } catch (error) {
+      console.error('[MSAL] Logout error:', error)
+      window.location.href = '/login'
+    }
   }
 
   const visibleItems = navItems.filter(item =>
@@ -37,14 +44,16 @@ export default function Sidebar() {
             <path d="M7 14h14M14 7v14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
         </span>
-        <span className="logo-text">FISEI<span>UTA</span></span>
+        <span className="logo-text">FISEI - <span>UTA</span></span>
       </div>
 
       <nav className="sidebar-nav">
         {visibleItems.map(({ to, icon, label }) => (
-          <NavLink key={to} to={to} className={({ isActive }) =>
-            `sidebar-link ${isActive ? 'active' : ''}`
-          }>
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+          >
             <i data-lucide={icon}></i>
             <span>{label}</span>
           </NavLink>
