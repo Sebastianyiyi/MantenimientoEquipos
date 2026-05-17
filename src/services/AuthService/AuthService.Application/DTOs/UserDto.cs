@@ -1,15 +1,14 @@
-namespace UserService.Domain.Entities;
+namespace AuthService.Application.DTOs;
 
-public class User
+public class UserDto
 {
     public Guid Id { get; set; }
     public string MicrosoftId { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string FullName { get; set; } = null!;
-    public bool IsActive { get; set; } = true;
+    public string Role { get; set; } = null!;
+    public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
-
-    // Navegación
-    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    public DateTime? LastLoginAt { get; set; }
 }

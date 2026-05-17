@@ -16,11 +16,11 @@ export default function Topbar() {
       <div className="topbar-right">
         <div className="topbar-user">
           <div className="user-info">
-            <span className="user-name">{user?.nombre ?? 'Usuario del Sistema'}</span>
-            <span className="user-role">{user?.rol ?? 'Sin rol'}</span>
+            <span className="user-name">{user?.fullName ?? 'Usuario del Sistema'}</span>
+            <span className="user-role">{user?.role ?? 'Sin rol'}</span>
           </div>
           <div className="user-avatar">
-            {user?.nombre?.charAt(0).toUpperCase() ?? 'U'}
+            {user?.fullName?.charAt(0).toUpperCase() ?? 'U'}
           </div>
         </div>
       </div>

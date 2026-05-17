@@ -14,7 +14,9 @@ export default function Login() {
   const handleMicrosoft = async () => {
     setError('')
     try {
-      await instance.loginRedirect(loginRequest)
+      await instance.loginRedirect({
+        ...loginRequest,
+        prompt: 'login'})
     } catch (err) {
       setError('Error al autenticar con Microsoft. Intenta de nuevo.')
     }

@@ -1,7 +1,6 @@
 using AuthService.Application.Interfaces;
 using AuthService.Infrastructure.Services;
 using AuthService.Infrastructure.Data;
-using AuthService.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -34,6 +33,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 // Servicios
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<IAuthService, AuthAppService>();
+builder.Services.AddScoped<IUserService, UserAppService>();
 builder.Services.AddHttpClient();
 builder.Services.AddCors();
 builder.Services.AddControllers();

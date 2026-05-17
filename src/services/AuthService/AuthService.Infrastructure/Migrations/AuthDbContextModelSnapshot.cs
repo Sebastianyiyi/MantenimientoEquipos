@@ -17,7 +17,7 @@ namespace AuthService.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -42,17 +42,17 @@ namespace AuthService.Infrastructure.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
-                    b.Property<Guid>("UserSessionId")
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserSessionId");
+                    b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
                 });
 
-            modelBuilder.Entity("AuthService.Domain.Entities.UserSession", b =>
+            modelBuilder.Entity("AuthService.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -82,6 +82,16 @@ namespace AuthService.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasDefaultValue("Laboratorista");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -90,21 +100,21 @@ namespace AuthService.Infrastructure.Migrations
                     b.HasIndex("MicrosoftId")
                         .IsUnique();
 
-                    b.ToTable("UserSessions");
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("AuthService.Domain.Entities.RefreshToken", b =>
                 {
-                    b.HasOne("AuthService.Domain.Entities.UserSession", "UserSession")
+                    b.HasOne("AuthService.Domain.Entities.User", "User")
                         .WithMany("RefreshTokens")
-                        .HasForeignKey("UserSessionId")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("UserSession");
+                    b.Navigation("User");
                 });
 
-            modelBuilder.Entity("AuthService.Domain.Entities.UserSession", b =>
+            modelBuilder.Entity("AuthService.Domain.Entities.User", b =>
                 {
                     b.Navigation("RefreshTokens");
                 });

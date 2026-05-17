@@ -20,7 +20,6 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/sin-acceso" element={<SinAcceso />} />
 
-        {/* Rutas protegidas - cualquier usuario autenticado */}
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -28,11 +27,12 @@ function App() {
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/catalogos" element={<Catalogos />} />
             <Route path="/importar" element={<Importar />} />
+          </Route>
+        </Route>
 
-            {/* Rutas solo para Administrador */}
-            <Route element={<ProtectedRoute roles={['Administrador']} />}>
-              <Route path="/usuarios" element={<Usuarios />} />
-            </Route>
+        <Route element={<ProtectedRoute roles={['Administrador']} />}>
+          <Route element={<MainLayout />}>
+            <Route path="/usuarios" element={<Usuarios />} />
           </Route>
         </Route>
 
