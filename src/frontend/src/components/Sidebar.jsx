@@ -6,7 +6,6 @@ import './Sidebar.css'
 const navItems = [
   { to: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', roles: null },
   { to: '/equipos', icon: 'monitor', label: 'Gestión de Equipos', roles: null },
-  { to: '/importar', icon: 'upload', label: 'Importar', roles: null },
   { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: null },
   { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
 ]

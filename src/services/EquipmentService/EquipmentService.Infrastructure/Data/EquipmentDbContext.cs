@@ -9,6 +9,7 @@ public class EquipmentDbContext : DbContext
 
     public DbSet<Equipment> Equipments => Set<Equipment>();
     public DbSet<EquipmentType> EquipmentTypes => Set<EquipmentType>();
+    public DbSet<EquipmentCodeCounter> EquipmentCodeCounters => Set<EquipmentCodeCounter>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -86,14 +87,9 @@ public class EquipmentDbContext : DbContext
 
             entity.Property(e => e.UpdatedAt);
 
-            entity.HasIndex(e => e.Code)
-                .IsUnique();
-
-            entity.HasIndex(e => e.AssetTag)
-                .IsUnique();
-
-            entity.HasIndex(e => e.SerialNumber)
-                .IsUnique();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.HasIndex(e => e.AssetTag).IsUnique();
+            entity.HasIndex(e => e.SerialNumber).IsUnique();
 
             entity.HasOne(e => e.EquipmentType)
                 .WithMany(t => t.Equipments)
@@ -106,6 +102,26 @@ public class EquipmentDbContext : DbContext
                     "CK_Equipments_SpecificationsJson",
                     "ISJSON([SpecificationsJson]) = 1");
             });
+        });
+
+        modelBuilder.Entity<EquipmentCodeCounter>(entity =>
+        {
+            entity.ToTable("EquipmentCodeCounters");
+
+            entity.HasKey(e => e.EquipmentTypeId);
+
+            entity.Property(e => e.Prefix)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(e => e.LastNumber)
+                .IsRequired()
+                .HasDefaultValue(0);
+
+            entity.HasOne(e => e.EquipmentType)
+                .WithOne()
+                .HasForeignKey<EquipmentCodeCounter>(e => e.EquipmentTypeId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

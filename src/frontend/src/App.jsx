@@ -25,8 +25,8 @@ function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
+            <Route path="/equipos/importar" element={<Importar />} />
             <Route path="/catalogos" element={<Catalogos />} />
-            <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>
 

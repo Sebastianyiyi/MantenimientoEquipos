@@ -1,4 +1,5 @@
 using EquipmentService.Infrastructure.Data;
+using EquipmentService.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<EquipmentCodeService>();
 
 var app = builder.Build();
 
