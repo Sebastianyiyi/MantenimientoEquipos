@@ -3,7 +3,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './routes/ProtectedRoute'
 import MainLayout from './components/MainLayout'
 import MsalRedirectHandler from './components/MsalRedirectHandler'
-
+import Tickets from './pages/tickets/Tickets'
 import Login from './pages/auth/Login'
 import SinAcceso from './pages/auth/SinAcceso'
 import Dashboard from './pages/dashboard/Dashboard'
@@ -27,11 +27,7 @@ function App() {
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/catalogos" element={<Catalogos />} />
             <Route path="/importar" element={<Importar />} />
-          </Route>
-        </Route>
-
-        <Route element={<ProtectedRoute roles={['Administrador']} />}>
-          <Route element={<MainLayout />}>
+            <Route path="/tickets" element={<Tickets />} />
             <Route path="/usuarios" element={<Usuarios />} />
           </Route>
         </Route>
