@@ -9,6 +9,8 @@ public class EquipmentDbContext : DbContext
 
     public DbSet<Equipment> Equipments => Set<Equipment>();
     public DbSet<EquipmentType> EquipmentTypes => Set<EquipmentType>();
+    public DbSet<Purchase> Purchases => Set<Purchase>();
+    public DbSet<EquipmentAttribute> EquipmentAttributes => Set<EquipmentAttribute>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -106,6 +108,50 @@ public class EquipmentDbContext : DbContext
                     "CK_Equipments_SpecificationsJson",
                     "ISJSON([SpecificationsJson]) = 1");
             });
+        });
+
+        modelBuilder.Entity<Purchase>(entity =>
+        {
+            entity.ToTable("Purchases");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Price)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.Supplier)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.InvoiceNumber)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Notes)
+                .HasMaxLength(500);
+
+            entity.HasOne(e => e.Equipment)
+                  .WithOne(e => e.Purchase)
+                  .HasForeignKey<Purchase>(e => e.EquipmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EquipmentAttribute>(entity =>
+        {
+            entity.ToTable("EquipmentAttributes");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Key)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Value)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.HasOne(e => e.Equipment)
+                  .WithMany(e => e.Attributes)
+                  .HasForeignKey(e => e.EquipmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
