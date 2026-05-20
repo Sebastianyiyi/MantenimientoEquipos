@@ -14,6 +14,7 @@ export default function Equipos() {
   const [showForm, setShowForm] = useState(false)
   const [showDetail, setShowDetail] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [editingEquipment, setEditingEquipment] = useState(null)
   const navigate = useNavigate()
 
   const getLifecycleStatus = (purchaseDate) => {
@@ -42,6 +43,21 @@ export default function Equipos() {
       color: '#991b1b',
       bg: '#fee2e2'
     }
+  }
+
+  const openEdit = (eq) => {
+    setShowDetail(null)
+    setEditingEquipment(eq)
+    setForm({
+      assetTag: eq.assetTag ?? '',
+      brand: eq.brand ?? '',
+      model: eq.model ?? '',
+      serialNumber: eq.serialNumber ?? '',
+      equipmentTypeId: eq.equipmentType?.id ?? '',
+      purchaseDate: eq.purchaseDate ?? '',
+      attributes: parseSpecs(eq.specificationsJson)
+    })
+    setShowForm(true)
   }
 
   const emptyForm = {
@@ -87,6 +103,7 @@ export default function Equipos() {
   }
 
   const openNew = () => {
+    setEditingEquipment(null)
     setForm(emptyForm)
     setShowForm(true)
   }
@@ -101,8 +118,9 @@ export default function Equipos() {
   const removeAttr = (idx) => setForm({ ...form, attributes: form.attributes.filter((_, i) => i !== idx) })
 
   const handleSaveUnitario = async () => {
-    if (!form.assetTag || !form.brand || !form.model || !form.serialNumber || !form.equipmentTypeId || !form.purchaseDate)
+    if (!form.assetTag || !form.brand || !form.model || !form.serialNumber || !form.equipmentTypeId || !form.purchaseDate) {
       return alert('Complete los campos obligatorios.')
+    }
 
     setSaving(true)
 
@@ -110,7 +128,7 @@ export default function Equipos() {
       const cleanAttributes = form.attributes.filter(a => a.key && a.value)
       const specsObject = Object.fromEntries(cleanAttributes.map(a => [a.key, a.value]))
 
-      await equipmentApi.post('/equipments', {
+      const payload = {
         assetTag: form.assetTag,
         brand: form.brand,
         model: form.model,
@@ -118,10 +136,23 @@ export default function Equipos() {
         equipmentTypeId: form.equipmentTypeId,
         purchaseDate: form.purchaseDate,
         specificationsJson: JSON.stringify(specsObject),
-        importSource: 'Manual'
-      })
+        importSource: editingEquipment ? undefined : 'Manual'
+      }
+
+      if (editingEquipment) {
+        await equipmentApi.put(`/equipments/${editingEquipment.id}`, {
+          assetTag: payload.assetTag,
+          brand: payload.brand,
+          model: payload.model,
+          purchaseDate: payload.purchaseDate,
+          specificationsJson: payload.specificationsJson
+        })
+      } else {
+        await equipmentApi.post('/equipments', payload)
+      }
 
       setShowForm(false)
+      setEditingEquipment(null)
       setForm(emptyForm)
       load()
     } catch (e) {
@@ -229,25 +260,47 @@ export default function Equipos() {
                   </td>
 
                   <td style={tdCenter}>
-                    <button
-                      onClick={() => setShowDetail(eq)}
-                      title="Ver ficha"
-                      style={iconButton}
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
+                      <button
+                        onClick={() => setShowDetail(eq)}
+                        title="Ver ficha"
+                        style={iconButton}
                       >
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    </button>
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={() => openEdit(eq)}
+                        title="Editar equipo"
+                        style={iconButton}
+                      >
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -268,13 +321,21 @@ export default function Equipos() {
         <div style={overlay}>
           <div style={{ ...modal, maxWidth: 600 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Registrar Equipo</h3>
+              <h3 style={{ margin: 0 }}>
+                {editingEquipment ? 'Editar Equipo' : 'Registrar Equipo'}
+              </h3>
               <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
             </div>
 
             <div style={grid2}>
-              <Field label="AssetTag *" value={form.assetTag} onChange={v => setForm({ ...form, assetTag: v })} placeholder="UTA-LAB-001" />
-              <Field label="N° Serie *" value={form.serialNumber} onChange={v => setForm({ ...form, serialNumber: v })} placeholder="SN123456" />
+              <Field label="AssetTag *" value={form.assetTag} onChange={v => setForm({ ...form, assetTag: v })} placeholder="UTA-FISEI-001" />
+              <Field
+                label="N° Serie *"
+                value={form.serialNumber}
+                onChange={v => setForm({ ...form, serialNumber: v })}
+                placeholder="SN123456"
+                disabled={!!editingEquipment}
+              />
               <Field label="Marca *" value={form.brand} onChange={v => setForm({ ...form, brand: v })} placeholder="HP, Dell..." />
               <Field label="Modelo *" value={form.model} onChange={v => setForm({ ...form, model: v })} placeholder="ProBook 450" />
               <Field label="Fecha de compra *" type="date" value={form.purchaseDate} onChange={v => setForm({ ...form, purchaseDate: v })} />
@@ -286,6 +347,7 @@ export default function Equipos() {
                 value={form.equipmentTypeId}
                 onChange={e => setForm({ ...form, equipmentTypeId: e.target.value })}
                 style={inputStyle}
+                disabled={!!editingEquipment}
               >
                 <option value="">Seleccione...</option>
                 {types.map(t => (
@@ -298,7 +360,9 @@ export default function Equipos() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <p style={{ fontWeight: 600, margin: 0 }}>Especificaciones</p>
-              <button className="btn-secondary" onClick={addAttr} style={{ fontSize: '0.8rem' }}>Agregar</button>
+              <button type="button" className="btn-secondary" onClick={addAttr} style={{ fontSize: '0.8rem' }}>
+                Agregar
+              </button>
             </div>
 
             {form.attributes.map((attr, i) => (
@@ -315,16 +379,22 @@ export default function Equipos() {
                   onChange={e => handleAttrChange(i, 'value', e.target.value)}
                   style={{ ...inputStyle, flex: 1 }}
                 />
-                <button onClick={() => removeAttr(i)} style={{ background: 'none', border: 'none', color: '#c0191f', cursor: 'pointer' }}>
+                <button
+                  type="button"
+                  onClick={() => removeAttr(i)}
+                  style={{ background: 'none', border: 'none', color: '#c0191f', cursor: 'pointer' }}
+                >
                   ✕
                 </button>
               </div>
             ))}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
-              <button className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>
+                Cancelar
+              </button>
               <button className="btn-primary" onClick={handleSaveUnitario} disabled={saving}>
-                {saving ? 'Guardando...' : 'Guardar'}
+                {saving ? 'Guardando...' : editingEquipment ? 'Actualizar' : 'Guardar'}
               </button>
             </div>
           </div>
@@ -346,10 +416,14 @@ export default function Equipos() {
                 </button>
 
                 <button
-                  onClick={() => setShowDetail(null)}
-                  style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+                  className="btn-secondary"
+                  onClick={() => {
+                    const current = showDetail
+                    setShowDetail(null)
+                    openEdit(current)
+                  }}
                 >
-                  ✕
+                  Editar
                 </button>
               </div>
             </div>
@@ -490,7 +564,7 @@ const iconButton = {
   lineHeight: 0
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text' }) {
+function Field({ label, value, onChange, placeholder, type = 'text', disabled = false }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
@@ -500,6 +574,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }) {
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         style={inputStyle}
+        disabled={disabled}
       />
     </div>
   )
