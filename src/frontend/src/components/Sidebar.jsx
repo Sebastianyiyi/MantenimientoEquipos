@@ -8,7 +8,6 @@ const navItems = [
   { to: '/equipos', icon: 'monitor', label: 'Gestión de Equipos', roles: null },
   { to: '/importar', icon: 'upload', label: 'Importar', roles: null },
   { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: null },
-  { to: '/tickets', icon: 'clipboard-list', label: 'Tickets de Mantenimiento', roles: ['Laboratorista'] },
   { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
 ]
 
@@ -19,7 +18,9 @@ export default function Sidebar() {
   const handleLogout = async () => {
     try {
       logout()
+
       const account = instance.getActiveAccount() || instance.getAllAccounts()[0]
+
       await instance.logoutRedirect({
         account,
         postLogoutRedirectUri: 'http://localhost:5173/login',

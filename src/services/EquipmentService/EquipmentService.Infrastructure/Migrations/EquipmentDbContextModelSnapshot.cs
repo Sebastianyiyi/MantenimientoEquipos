@@ -112,32 +112,6 @@ namespace EquipmentService.Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("EquipmentService.Domain.Entities.EquipmentAttribute", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("EquipmentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentId");
-
-                    b.ToTable("EquipmentAttributes", (string)null);
-                });
-
             modelBuilder.Entity("EquipmentService.Domain.Entities.EquipmentType", b =>
                 {
                     b.Property<Guid>("Id")
@@ -157,41 +131,6 @@ namespace EquipmentService.Infrastructure.Migrations
                     b.ToTable("EquipmentTypes", (string)null);
                 });
 
-            modelBuilder.Entity("EquipmentService.Domain.Entities.Purchase", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("EquipmentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("InvoiceNumber")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("PurchaseDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Supplier")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentId")
-                        .IsUnique();
-
-                    b.ToTable("Purchases", (string)null);
-                });
-
             modelBuilder.Entity("EquipmentService.Domain.Entities.Equipment", b =>
                 {
                     b.HasOne("EquipmentService.Domain.Entities.EquipmentType", "EquipmentType")
@@ -201,35 +140,6 @@ namespace EquipmentService.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("EquipmentType");
-                });
-
-            modelBuilder.Entity("EquipmentService.Domain.Entities.EquipmentAttribute", b =>
-                {
-                    b.HasOne("EquipmentService.Domain.Entities.Equipment", "Equipment")
-                        .WithMany("Attributes")
-                        .HasForeignKey("EquipmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Equipment");
-                });
-
-            modelBuilder.Entity("EquipmentService.Domain.Entities.Purchase", b =>
-                {
-                    b.HasOne("EquipmentService.Domain.Entities.Equipment", "Equipment")
-                        .WithOne("Purchase")
-                        .HasForeignKey("EquipmentService.Domain.Entities.Purchase", "EquipmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Equipment");
-                });
-
-            modelBuilder.Entity("EquipmentService.Domain.Entities.Equipment", b =>
-                {
-                    b.Navigation("Attributes");
-
-                    b.Navigation("Purchase");
                 });
 
             modelBuilder.Entity("EquipmentService.Domain.Entities.EquipmentType", b =>
