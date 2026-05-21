@@ -18,7 +18,4 @@ public class Equipment
 
     public Guid EquipmentTypeId { get; set; }
     public EquipmentType EquipmentType { get; set; } = null!;
-    public Purchase? Purchase { get; set; }
-    public ICollection<EquipmentAttribute> Attributes { get; set; } = new List<EquipmentAttribute>();
-    
 }

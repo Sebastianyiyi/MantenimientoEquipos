@@ -28,11 +28,13 @@ const addAuthInterceptor = (instance) => {
     } else {
       console.warn('[API WARN] No token found in localStorage for request:', config.url)
     }
+
     console.log('[REQ]', config.baseURL + config.url, {
       hasToken: !!token,
       tokenPreview: token ? token.substring(0, 20) + '...' : 'NO TOKEN',
       authHeader: config.headers.Authorization ? 'YES' : 'NO',
     })
+
     return config
   })
 
@@ -41,14 +43,18 @@ const addAuthInterceptor = (instance) => {
     err => {
       const status = err.response?.status
       const url = err.config?.baseURL + err.config?.url
+
       console.error('[API ERROR]', {
         status,
         url,
         data: err.response?.data,
       })
-      // if (status === 403) {
-      //   window.location.href = '/sin-acceso'
-      // }
+
+      if (status === 403) {
+        window.location.href = '/sin-acceso'
+      }
+
+      // TEMPORAL: no borrar sesión ni redirigir en 401
       return Promise.reject(err)
     }
   )
