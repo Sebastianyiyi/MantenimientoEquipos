@@ -26,12 +26,12 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/equipos/importar" element={<Importar />} />
-            <Route path="/catalogos" element={<Catalogos />} />
           </Route>
         </Route>
 
         <Route element={<ProtectedRoute roles={['Administrador']} />}>
           <Route element={<MainLayout />}>
+            <Route path="/catalogos" element={<Catalogos />} />
             <Route path="/usuarios" element={<Usuarios />} />
           </Route>
         </Route>

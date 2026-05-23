@@ -50,6 +50,8 @@ public class AuthAppService : IAuthService
         }
         else
         {
+            if (!user.IsActive) return null;
+
             user.Email = microsoftUser.Email;
             user.FullName = microsoftUser.FullName;
             user.LastLoginAt = DateTime.UtcNow;

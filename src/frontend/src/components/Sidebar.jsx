@@ -6,14 +6,14 @@ import './Sidebar.css'
 const navItems = [
   { to: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', roles: null },
   { to: '/equipos', icon: 'monitor', label: 'Gestión de Equipos', roles: null },
-  { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: null },
+  { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: ['Administrador'] },
   { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
 ]
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
   const { instance } = useMsal()
-
+  
   const handleLogout = async () => {
     try {
       logout()

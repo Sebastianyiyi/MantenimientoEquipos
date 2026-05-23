@@ -13,9 +13,6 @@ export default function Usuarios() {
   const [editRole, setEditRole] = useState('')
   const [saving, setSaving] = useState(false)
 
-  console.log('[Usuarios] token:', localStorage.getItem('token'))
-  console.log('[Usuarios] user:', localStorage.getItem('user'))
-
   useEffect(() => {
     loadUsers()
   }, [])
@@ -47,7 +44,7 @@ export default function Usuarios() {
     try {
       setError('')
       const res = await userApi.put(`/users/${userId}/role`, { role: editRole })
-      setUsers(prev => prev.map(u => u.id === userId ? res.data : u))
+      setUsers(prev => prev.map(u => (u.id === userId ? res.data : u)))
       setEditingId(null)
     } catch (err) {
       console.error('[Usuarios] handleSaveRole error', {
@@ -57,7 +54,11 @@ export default function Usuarios() {
         role: editRole,
       })
 
-      if (err.response?.status === 403) {
+      const apiMessage = err.response?.data?.message
+
+      if (apiMessage) {
+        setError(apiMessage)
+      } else if (err.response?.status === 403) {
         setError('No tienes permisos para cambiar el rol de este usuario.')
       } else if (err.response?.status === 401) {
         setError('Tu sesión no es válida o expiró al intentar actualizar el rol.')
@@ -73,7 +74,7 @@ export default function Usuarios() {
     try {
       setError('')
       const res = await userApi.put(`/users/${userId}/toggle-active`)
-      setUsers(prev => prev.map(u => u.id === userId ? res.data : u))
+      setUsers(prev => prev.map(u => (u.id === userId ? res.data : u)))
     } catch (err) {
       console.error('[Usuarios] handleToggleActive error', {
         status: err.response?.status,
@@ -81,7 +82,11 @@ export default function Usuarios() {
         userId,
       })
 
-      if (err.response?.status === 403) {
+      const apiMessage = err.response?.data?.message
+
+      if (apiMessage) {
+        setError(apiMessage)
+      } else if (err.response?.status === 403) {
         setError('No tienes permisos para cambiar el estado de este usuario.')
       } else if (err.response?.status === 401) {
         setError('Tu sesión no es válida o expiró al cambiar el estado del usuario.')
@@ -103,19 +108,24 @@ export default function Usuarios() {
           <h1>Gestión de Usuarios</h1>
           <p>Administración de usuarios y roles del sistema</p>
         </div>
-        <span className="badge-admin">Administrador</span>
       </div>
 
       {error && (
         <div className="alert-error">
           {error}
-          <button onClick={() => setError('')}>✕</button>
+          <button type="button" onClick={() => setError('')}>✕</button>
         </div>
       )}
 
       <div className="usuarios-toolbar">
         <div className="search-box">
-          <i data-lucide="search"></i>
+          <span className="search-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+          </span>
+
           <input
             type="text"
             placeholder="Buscar por nombre o correo..."
@@ -123,8 +133,14 @@ export default function Usuarios() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <button className="btn-refresh" onClick={loadUsers}>
-          <i data-lucide="refresh-cw"></i>
+
+        <button className="btn-refresh" onClick={loadUsers} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15.55 6.36L3 16" />
+          </svg>
           Actualizar
         </button>
       </div>
@@ -141,7 +157,6 @@ export default function Usuarios() {
           <div className="loading-state">Cargando usuarios...</div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
-            <i data-lucide="users"></i>
             <p>No se encontraron usuarios</p>
           </div>
         ) : (
@@ -153,7 +168,7 @@ export default function Usuarios() {
                 <th>Rol</th>
                 <th>Estado</th>
                 <th>Miembro desde</th>
-                <th>Acciones</th>
+                <th className="actions-header">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -167,7 +182,9 @@ export default function Usuarios() {
                       <span className="user-name">{user.fullName}</span>
                     </div>
                   </td>
+
                   <td className="user-email">{user.email}</td>
+
                   <td>
                     {editingId === user.id ? (
                       <select
@@ -185,51 +202,84 @@ export default function Usuarios() {
                       </span>
                     )}
                   </td>
+
                   <td>
                     <span className={`status-badge ${user.isActive ? 'active' : 'inactive'}`}>
                       {user.isActive ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
+
                   <td className="user-date">
                     {new Date(user.createdAt).toLocaleDateString('es-EC', {
-                      day: '2-digit', month: 'short', year: 'numeric'
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
                     })}
                   </td>
-                  <td>
-                    <div className="action-btns">
+
+                  <td className="actions-cell">
+                    <div className="table-actions">
                       {editingId === user.id ? (
                         <>
                           <button
-                            className="btn-save"
+                            className="action-icon-btn"
                             onClick={() => handleSaveRole(user.id)}
                             disabled={saving}
                             title="Guardar rol"
+                            type="button"
                           >
-                            <i data-lucide="check"></i>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
                           </button>
+
                           <button
-                            className="btn-cancel"
+                            className="action-icon-btn"
                             onClick={() => setEditingId(null)}
                             title="Cancelar"
+                            type="button"
                           >
-                            <i data-lucide="x"></i>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6 6 18" />
+                              <path d="m6 6 12 12" />
+                            </svg>
                           </button>
                         </>
                       ) : (
                         <>
                           <button
-                            className="btn-icon"
+                            className="action-icon-btn"
                             onClick={() => handleEditRole(user)}
-                            title="Cambiar rol"
+                            title="Editar rol"
+                            type="button"
                           >
-                            <i data-lucide="pencil"></i>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 20h9" />
+                              <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                            </svg>
                           </button>
+
                           <button
-                            className="btn-icon btn-toggle"
+                            className="action-icon-btn"
                             onClick={() => handleToggleActive(user.id)}
                             title={user.isActive ? 'Desactivar usuario' : 'Activar usuario'}
+                            type="button"
                           >
-                            <i data-lucide={user.isActive ? 'user-x' : 'user-check'}></i>
+                            {user.isActive ? (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <line x1="17" x2="22" y1="8" y2="13" />
+                                <line x1="22" x2="17" y1="8" y2="13" />
+                              </svg>
+                            ) : (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <path d="M19 8v6" />
+                                <path d="M22 11h-6" />
+                              </svg>
+                            )}
                           </button>
                         </>
                       )}
