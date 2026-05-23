@@ -26,6 +26,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/equipos/importar" element={<Importar />} />
+            <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>
 

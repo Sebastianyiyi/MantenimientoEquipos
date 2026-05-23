@@ -97,6 +97,10 @@
   width: 120px;
 }
 
+.cat-center {
+  text-align: center !important;
+}
+
 .table-actions {
   display: flex;
   align-items: center;

@@ -9,6 +9,8 @@ export default function Usuarios() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [filterRol, setFilterRol] = useState('todos')
+  const [filterEstado, setFilterEstado] = useState('todos')
   const [editingId, setEditingId] = useState(null)
   const [editRole, setEditRole] = useState('')
   const [saving, setSaving] = useState(false)
@@ -96,10 +98,17 @@ export default function Usuarios() {
     }
   }
 
-  const filtered = users.filter(u =>
-    u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = users.filter(u => {
+    const matchSearch =
+      u.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase())
+    const matchRol = filterRol === 'todos' || u.role.toLowerCase() === filterRol
+    const matchEstado =
+      filterEstado === 'todos' ||
+      (filterEstado === 'activo' && u.isActive) ||
+      (filterEstado === 'inactivo' && !u.isActive)
+    return matchSearch && matchRol && matchEstado
+  })
 
   return (
     <div className="usuarios-page">
@@ -134,6 +143,26 @@ export default function Usuarios() {
           />
         </div>
 
+        <select
+          className="filter-select"
+          value={filterRol}
+          onChange={e => setFilterRol(e.target.value)}
+        >
+          <option value="todos">Todos los roles</option>
+          <option value="administrador">Administrador</option>
+          <option value="laboratorista">Laboratorista</option>
+        </select>
+
+        <select
+          className="filter-select"
+          value={filterEstado}
+          onChange={e => setFilterEstado(e.target.value)}
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="activo">Activo</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+
         <button className="btn-refresh" onClick={loadUsers} type="button">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 2v6h-6" />
@@ -148,7 +177,7 @@ export default function Usuarios() {
       <div className="usuarios-card">
         <div className="card-header">
           <div>
-            <h2>Usuarios del Sistema ({filtered.length})</h2>
+            <h2>Usuarios del Sistema</h2>
             <p>Listado de usuarios registrados y sus roles</p>
           </div>
         </div>
