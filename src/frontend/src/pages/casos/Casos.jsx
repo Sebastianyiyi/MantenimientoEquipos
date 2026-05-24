@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { maintenanceApi, equipmentApi } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
@@ -24,20 +24,30 @@ const PRIORITY_COLORS = {
   Baja:  { bg: '#f0fdf4', color: '#166534' },
 }
 
+const nextStatus = {
+  'Pendiente':  'En Proceso',
+  'En Proceso': 'Terminado',
+}
+
 export default function Casos() {
   const { user } = useAuth()
 
   const [tickets, setTickets]       = useState([])
   const [equipments, setEquipments] = useState([])
+  const [usuarios, setUsuarios]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState('')
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType]     = useState('')
 
-  const [showForm, setShowForm]         = useState(false)
-  const [showDetail, setShowDetail]     = useState(null)
-  const [saving, setSaving]             = useState(false)
+  const [showForm, setShowForm]           = useState(false)
+  const [showDetail, setShowDetail]       = useState(null)
+  const [showHistory, setShowHistory]     = useState(false)
+  const [history, setHistory]             = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [saving, setSaving]               = useState(false)
+  const [changingStatus, setChangingStatus] = useState(false)
   const [editingTicket, setEditingTicket] = useState(null)
   const [lastCreatedCode, setLastCreatedCode] = useState(null)
 
@@ -48,29 +58,50 @@ export default function Casos() {
     priority: 'Media',
     equipmentIds: [],
   }
-
   const [form, setForm] = useState(emptyForm)
 
   const load = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError('')
-      const [ticketsRes, eqRes] = await Promise.allSettled([
-        maintenanceApi.get('/tickets'),
-        equipmentApi.get('/equipments'),
-      ])
-      if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
-      if (eqRes.status !== 'fulfilled') throw eqRes.reason
-      setTickets(ticketsRes.value.data)
-      setEquipments(eqRes.value.data)
-    } catch (e) {
-      setError(e.response?.data?.message ?? 'Error al cargar los casos.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  try {
+    setLoading(true)
+    setError('')
+    const [ticketsRes, eqRes, usersRes] = await Promise.allSettled([
+      maintenanceApi.get('/tickets'),
+      equipmentApi.get('/equipments'),
+      userApi.get('/users'),
+    ])
+    if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
+    if (eqRes.status !== 'fulfilled') throw eqRes.reason
+    setTickets(ticketsRes.value.data)
+    setEquipments(eqRes.value.data)
+    if (usersRes.status === 'fulfilled') setUsuarios(usersRes.value.data)
+  } catch (e) {
+    setError(e.response?.data?.message ?? 'Error al cargar los casos.')
+  } finally {
+    setLoading(false)
+  }
+ }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Refresca el detalle del caso abierto para tener los estados actualizados
+  const refreshDetail = async (ticketId) => {
+    try {
+      const res = await maintenanceApi.get(`/tickets/${ticketId}`)
+      setShowDetail(res.data)
+    } catch { /* silencioso */ }
+  }
+
+  const loadHistory = async (ticketId) => {
+    try {
+      setLoadingHistory(true)
+      const res = await maintenanceApi.get(`/tickets/${ticketId}/status-history`)
+      setHistory(res.data)
+    } catch {
+      setHistory([])
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   const filtered = tickets.filter(t => {
     const matchSearch = !search ||
@@ -100,6 +131,17 @@ export default function Casos() {
       equipmentIds: ticket.equipmentIds ?? [],
     })
     setShowForm(true)
+  }
+
+  const openDetail = async (ticket) => {
+    try {
+      const res = await maintenanceApi.get(`/tickets/${ticket.id}`)
+      setShowDetail(res.data)
+      setShowHistory(false)
+      setHistory([])
+    } catch {
+      setShowDetail(ticket)
+    }
   }
 
   const toggleEquipment = (id) => {
@@ -145,15 +187,70 @@ export default function Casos() {
     }
   }
 
-  const getEquipmentNames = (equipmentIds = []) =>
-    equipmentIds.map(id => {
-      const eq = equipments.find(e => e.id === id)
-      return eq ? `${eq.brand} ${eq.model} (${eq.assetTag})` : id
+  // Cambiar estado de un equipo dentro del caso
+  const handleEquipmentStatusChange = async (teId, newStatus, ticketId) => {
+  setChangingStatus(true)
+  try {
+    await maintenanceApi.put(`/ticket-equipments/${teId}/status`, {
+      newStatus,
+      comment: '',
+      changedByUserId: user?.id,
+    })
+    setShowDetail(prev => ({
+      ...prev,
+      ticketEquipments: prev.ticketEquipments.map(te =>
+        te.id === teId ? { ...te, status: newStatus } : te
+      )
+    }))
+    await load()
+  } catch (err) {
+    alert(err.response?.data ?? 'Error al cambiar el estado del equipo.')
+  } finally {
+    setChangingStatus(false)
+  }
+}
+
+const handleTicketStatusChange = async (ticketId, newStatus) => {
+  setChangingStatus(true)
+  try {
+    await maintenanceApi.put(`/tickets/${ticketId}/status`, {
+      newStatus,
+      comment: '',
+      changedByUserId: user?.id,
+    })
+    setShowDetail(prev => ({
+      ...prev,
+      status: newStatus,
+      closedAt: newStatus === 'Terminado' ? new Date().toISOString() : prev.closedAt
+    }))
+    await load()
+  } catch (err) {
+    alert(err.response?.data ?? 'Error al cambiar el estado del caso.')
+  } finally {
+    setChangingStatus(false)
+  }
+}
+
+  const getEquipmentLabel = (equipmentId) => {
+    const eq = equipments.find(e => e.id === equipmentId)
+    return eq ? `${eq.assetTag} — ${eq.brand} ${eq.model}` : equipmentId
+  }
+
+  const getUserName = (userId) => {
+  const u = usuarios.find(u => u.id === userId)
+  return u ? u.fullName : 'Usuario desconocido'
+  }
+
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleString('es-EC', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
     })
 
   return (
     <div style={{ padding: '2rem' }}>
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ margin: 0 }}>Casos de Mantenimiento</h1>
@@ -182,6 +279,7 @@ export default function Casos() {
         </div>
       )}
 
+      {/* Toolbar */}
       <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <input
           placeholder="Buscar por código o título..."
@@ -199,6 +297,7 @@ export default function Casos() {
         </select>
       </div>
 
+      {/* Tabla */}
       {loading ? <p>Cargando...</p> : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
@@ -224,7 +323,7 @@ export default function Casos() {
                   <td style={td}>{new Date(ticket.createdAt).toLocaleDateString('es-EC')}</td>
                   <td style={tdCenter}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
-                      <button onClick={() => setShowDetail(ticket)} title="Ver detalle" style={iconBtn}>
+                      <button onClick={() => openDetail(ticket)} title="Ver detalle" style={iconBtn}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
                         </svg>
@@ -252,12 +351,22 @@ export default function Casos() {
         </div>
       )}
 
+      {/* ── MODAL FORMULARIO ── */}
       {showForm && (
         <div style={overlay}>
           <div style={{ ...modal, maxWidth: 640 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0 }}>{editingTicket ? 'Editar Caso' : 'Nuevo Caso de Mantenimiento'}</h3>
               <button onClick={() => setShowForm(false)} style={closeBtn}>✕</button>
+            </div>
+
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={labelStyle}>Código del caso</label>
+              <input
+                value="Se generará automáticamente (ej: CASE-2026-0001)"
+                readOnly
+                style={{ ...inputStyle, background: '#f9fafb', color: '#9ca3af', fontStyle: 'italic', cursor: 'not-allowed' }}
+              />
             </div>
 
             <div style={{ marginBottom: '0.75rem' }}>
@@ -275,7 +384,7 @@ export default function Casos() {
               <textarea
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
-                placeholder="Descripción detallada del problema o trabajo a realizar..."
+                placeholder="Descripción detallada del problema..."
                 rows={3}
                 style={{ ...inputStyle, resize: 'vertical' }}
               />
@@ -284,22 +393,14 @@ export default function Casos() {
             <div style={grid2}>
               <div>
                 <label style={labelStyle}>Tipo de Mantenimiento *</label>
-                <select
-                  value={form.maintenanceType}
-                  onChange={e => setForm({ ...form, maintenanceType: e.target.value })}
-                  style={inputStyle}
-                >
+                <select value={form.maintenanceType} onChange={e => setForm({ ...form, maintenanceType: e.target.value })} style={inputStyle}>
                   <option value="">Seleccione...</option>
                   {MAINTENANCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label style={labelStyle}>Prioridad</label>
-                <select
-                  value={form.priority}
-                  onChange={e => setForm({ ...form, priority: e.target.value })}
-                  style={inputStyle}
-                >
+                <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })} style={inputStyle}>
                   {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -350,18 +451,20 @@ export default function Casos() {
         </div>
       )}
 
+      {/* ── MODAL DETALLE + CONTROL DE ESTADOS (HU-12) ── */}
       {showDetail && (
         <div style={overlay}>
-          <div style={{ ...modal, maxWidth: 580 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ ...modal, maxWidth: 680 }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
               <div>
                 <h3 style={{ margin: 0 }}>Detalle del Caso</h3>
-                <code style={{ color: '#2563eb', fontWeight: 700 }}>{showDetail.ticketNumber}</code>
+                <code style={{ color: '#2563eb', fontWeight: 700, fontSize: '1rem' }}>{showDetail.ticketNumber}</code>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 {showDetail.status !== 'Terminado' && (
-                  <button className="btn-secondary"
-                    onClick={() => { const t = showDetail; setShowDetail(null); openEdit(t) }}>
+                  <button className="btn-secondary" onClick={() => { const t = showDetail; setShowDetail(null); openEdit(t) }}>
                     Editar
                   </button>
                 )}
@@ -369,15 +472,20 @@ export default function Casos() {
               </div>
             </div>
 
+            {/* Info general */}
             <div style={grid2}>
               <Info label="Título" value={showDetail.title} />
-              <Info label="Estado"><Badge colors={STATUS_COLORS[showDetail.status]}>{showDetail.status}</Badge></Info>
-              <Info label="Tipo"><Badge colors={TYPE_COLORS[showDetail.maintenanceType]}>{showDetail.maintenanceType}</Badge></Info>
-              <Info label="Prioridad"><Badge colors={PRIORITY_COLORS[showDetail.priority]}>{showDetail.priority}</Badge></Info>
-              <Info label="Creado el" value={new Date(showDetail.createdAt).toLocaleString('es-EC')} />
-              {showDetail.closedAt && (
-                <Info label="Cerrado el" value={new Date(showDetail.closedAt).toLocaleString('es-EC')} />
-              )}
+              <Info label="Estado general">
+                <Badge colors={STATUS_COLORS[showDetail.status]}>{showDetail.status}</Badge>
+              </Info>
+              <Info label="Tipo">
+                <Badge colors={TYPE_COLORS[showDetail.maintenanceType]}>{showDetail.maintenanceType}</Badge>
+              </Info>
+              <Info label="Prioridad">
+                <Badge colors={PRIORITY_COLORS[showDetail.priority]}>{showDetail.priority}</Badge>
+              </Info>
+              <Info label="Creado el" value={formatDate(showDetail.createdAt)} />
+              {showDetail.closedAt && <Info label="Cerrado el" value={formatDate(showDetail.closedAt)} />}
             </div>
 
             {showDetail.description && (
@@ -387,17 +495,142 @@ export default function Casos() {
               </div>
             )}
 
-            {showDetail.equipmentIds?.length > 0 && (
-              <>
-                <hr style={{ margin: '0.75rem 0', borderColor: '#f0f0f0' }} />
-                <p style={{ fontWeight: 600, margin: '0 0 0.5rem' }}>Equipos ({showDetail.equipmentIds.length})</p>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem', lineHeight: 2 }}>
-                  {getEquipmentNames(showDetail.equipmentIds).map((name, i) => (
-                    <li key={i} style={{ fontSize: '0.875rem' }}>{name}</li>
-                  ))}
-                </ul>
-              </>
+            <hr style={{ margin: '0.75rem 0', borderColor: '#f0f0f0' }} />
+
+            {/* ── HU-12: Estado por equipo ── */}
+            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
+              Control de Estado por Equipo
+            </p>
+
+            {showDetail.ticketEquipments?.length > 0 ? (
+              showDetail.ticketEquipments.map(te => (
+                <div key={te.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.6rem 0.9rem', borderRadius: 8,
+                  background: '#f9fafb', border: '1px solid #e5e7eb',
+                  marginBottom: '0.5rem'
+                }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 500, flex: 1 }}>
+                    {getEquipmentLabel(te.equipmentId)}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <Badge colors={STATUS_COLORS[te.status]}>{te.status}</Badge>
+                    {te.status !== 'Terminado' && showDetail.status !== 'Terminado' && (
+                      <button
+                        disabled={changingStatus}
+                        onClick={() => handleEquipmentStatusChange(te.id, nextStatus[te.status], showDetail.id)}
+                        style={{
+                          padding: '0.3rem 0.75rem', borderRadius: 6,
+                          border: '1px solid #3b82f6', background: '#eff6ff',
+                          color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600,
+                          cursor: changingStatus ? 'not-allowed' : 'pointer',
+                          opacity: changingStatus ? 0.6 : 1,
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        → {nextStatus[te.status]}
+                      </button>
+                    )}
+                    {te.status === 'Terminado' && (
+                      <span style={{ fontSize: '0.78rem', color: '#166534' }}>✓ Completado</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
             )}
+
+            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
+
+            {/* ── HU-12: Estado general del caso ── */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '0.75rem 1rem', borderRadius: 8,
+              background: showDetail.status === 'Terminado' ? '#f0fdf4' : '#f8fafc',
+              border: `1px solid ${showDetail.status === 'Terminado' ? '#86efac' : '#e5e7eb'}`
+            }}>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Estado general del caso</p>
+                <div style={{ marginTop: 4 }}>
+                  <Badge colors={STATUS_COLORS[showDetail.status]}>{showDetail.status}</Badge>
+                </div>
+              </div>
+              {showDetail.status !== 'Terminado' && nextStatus[showDetail.status] && (
+                <button
+                  disabled={changingStatus}
+                  onClick={() => handleTicketStatusChange(showDetail.id, nextStatus[showDetail.status])}
+                  style={{
+                    padding: '0.5rem 1rem', borderRadius: 8,
+                    border: 'none', background: '#C0191F',
+                    color: 'white', fontSize: '0.875rem', fontWeight: 600,
+                    cursor: changingStatus ? 'not-allowed' : 'pointer',
+                    opacity: changingStatus ? 0.6 : 1,
+                  }}
+                >
+                  {changingStatus ? 'Actualizando...' : `→ Marcar como ${nextStatus[showDetail.status]}`}
+                </button>
+              )}
+              {showDetail.status === 'Terminado' && (
+                <span style={{ color: '#166534', fontWeight: 600 }}>✓ Caso cerrado</span>
+              )}
+            </div>
+
+            {/* ── HU-12: Historial de estados ── */}
+            <div style={{ marginTop: '1rem' }}>
+              <button
+                onClick={async () => {
+                  if (!showHistory) await loadHistory(showDetail.id)
+                  setShowHistory(prev => !prev)
+                }}
+                style={{
+                  background: 'none', border: 'none', color: '#2563eb',
+                  cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, padding: 0
+                }}
+              >
+                {showHistory ? '▲ Ocultar historial de cambios' : '▼ Ver historial de cambios'}
+              </button>
+
+              {showHistory && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  {loadingHistory ? (
+                    <p style={{ color: '#888', fontSize: '0.875rem' }}>Cargando historial...</p>
+                  ) : history.length === 0 ? (
+                    <p style={{ color: '#888', fontSize: '0.875rem' }}>Sin cambios registrados aún.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 200, overflowY: 'auto' }}>
+                      {history.map(h => (
+                        <div key={h.id} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                          padding: '0.5rem 0.75rem', borderRadius: 8, background: '#f9fafb',
+                          border: '1px solid #e5e7eb', fontSize: '0.82rem'
+                        }}>
+                          <div style={{
+                            width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0,
+                            background: h.entityType === 'Ticket' ? '#C0191F' : '#3b82f6'
+                          }} />
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontWeight: 600 }}>
+                              {h.entityType === 'Ticket' ? 'Caso' : 'Equipo'}
+                            </span>
+                            {' — '}
+                            <Badge colors={STATUS_COLORS[h.previousStatus]}>{h.previousStatus}</Badge>
+                            {' → '}
+                            <Badge colors={STATUS_COLORS[h.newStatus]}>{h.newStatus}</Badge>
+                            <span style={{ color: '#6b7280', marginLeft: 6 }}>
+                            por <strong>{getUserName(h.changedByUserId)}</strong>
+                            </span>
+                            {h.comment && <span style={{ color: '#6b7280' }}> · {h.comment}</span>}
+                          </div>
+                          <span style={{ color: '#9ca3af', flexShrink: 0 }}>{formatDate(h.changedAt)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}
@@ -426,15 +659,15 @@ function Info({ label, value, children }) {
   )
 }
 
-const th       = { padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }
-const thCenter = { ...th, textAlign: 'center' }
-const td       = { padding: '0.75rem 1rem' }
-const tdCenter = { ...td, textAlign: 'center' }
-const overlay  = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto', padding: '1rem' }
-const modal    = { background: '#fff', borderRadius: 12, padding: '2rem', width: '100%', maxHeight: '90vh', overflowY: 'auto' }
-const grid2    = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }
+const th        = { padding: '0.75rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '0.85rem' }
+const thCenter  = { ...th, textAlign: 'center' }
+const td        = { padding: '0.75rem 1rem' }
+const tdCenter  = { ...td, textAlign: 'center' }
+const overlay   = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto', padding: '1rem' }
+const modal     = { background: '#fff', borderRadius: 12, padding: '2rem', width: '100%', maxHeight: '90vh', overflowY: 'auto' }
+const grid2     = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }
 const labelStyle = { display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '0.25rem', color: '#555' }
-const inputStyle = { width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box' }
+const inputStyle = { width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box', fontFamily: 'inherit' }
 const selectStyle = { padding: '0.5rem', borderRadius: 6, border: '1px solid #ddd' }
-const closeBtn = { background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#666' }
-const iconBtn  = { width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', lineHeight: 0 }
+const closeBtn  = { background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#666' }
+const iconBtn   = { width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0, border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', lineHeight: 0 }

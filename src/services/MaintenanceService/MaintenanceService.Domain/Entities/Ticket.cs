@@ -7,7 +7,7 @@ public class Ticket
     public string Title { get; set; } = null!;
     public string? Description { get; set; }
     public string MaintenanceType { get; set; } = null!;    // "Correctivo", "Preventivo", "Adaptativo"
-    public string Status { get; set; } = null!;         // "Abierto", "En progreso", "Cerrado"
+    public string Status { get; set; } = null!;       // "Pendiente", "En Proceso", "Terminado"
     public string Priority { get; set; } = null!;       // "Baja", "Media", "Alta"
     public Guid CreatedByUserId { get; set; }           // Laboratorista que abrió el ticket
     public DateTime CreatedAt { get; set; }
