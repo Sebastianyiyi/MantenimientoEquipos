@@ -11,6 +11,7 @@ import Equipos from './pages/equipos/Equipos'
 import Catalogos from './pages/catalogos/Catalogos'
 import Importar from './pages/importar/Importar'
 import Usuarios from './pages/usuarios/Usuarios'
+import Casos from './pages/casos/Casos'
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/equipos/importar" element={<Importar />} />
+            <Route path="/casos" element={<Casos />} />
             <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>

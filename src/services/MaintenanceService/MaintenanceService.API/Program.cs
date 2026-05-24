@@ -1,3 +1,4 @@
+using MaintenanceService.API.Services;
 using MaintenanceService.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -5,6 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<MaintenanceDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<TicketCodeService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

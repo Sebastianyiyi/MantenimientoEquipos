@@ -22,6 +22,7 @@ public class MaintenanceDbContext : DbContext
             entity.Property(e => e.TicketNumber).IsRequired().HasMaxLength(32);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(256);
             entity.Property(e => e.Description).HasMaxLength(1024);
+            entity.Property(e => e.MaintenanceType).IsRequired().HasMaxLength(64); 
             entity.Property(e => e.Status).IsRequired().HasMaxLength(64);
             entity.Property(e => e.Priority).IsRequired().HasMaxLength(32);
             entity.HasIndex(e => e.TicketNumber).IsUnique();
