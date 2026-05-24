@@ -513,7 +513,7 @@ export default function Equipos() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}>Ficha Técnica</h3>
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <button
                   className="btn-secondary"
                   onClick={() => window.print()}
@@ -530,6 +530,30 @@ export default function Equipos() {
                   }}
                 >
                   Editar
+                </button>
+
+                <button
+                  onClick={() => setShowDetail(null)}
+                  title="Cerrar"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 8,
+                    background: '#fff',
+                    cursor: 'pointer',
+                    color: '#374151',
+                    fontSize: '1rem',
+                    lineHeight: 1,
+                    transition: 'background 0.15s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                >
+                  ✕
                 </button>
               </div>
             </div>

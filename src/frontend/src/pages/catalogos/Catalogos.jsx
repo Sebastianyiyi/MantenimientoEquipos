@@ -132,7 +132,7 @@ function TiposEquipo() {
             <th>#</th>
             <th>Nombre</th>
             <th>Descripción</th>
-            <th>Equipos</th>
+            <th className="cat-center">Equipos</th>
             <th className="cat-actions-header">Acciones</th>
           </tr>
         </thead>
@@ -142,7 +142,7 @@ function TiposEquipo() {
               <td>{i + 1}</td>
               <td>{item.name}</td>
               <td>{item.description ?? '—'}</td>
-              <td>{item.equipmentCount}</td>
+              <td className="cat-center">{item.equipmentCount}</td>
               <td className="cat-actions">
                 <div className="table-actions">
                   <button
