@@ -3,11 +3,20 @@ namespace LocationService.Domain.Entities;
 public class EquipmentLocation
 {
     public Guid Id { get; set; }
-    public Guid EquipmentId { get; set; }             // Referencia al equipo (EquipmentService)
-    public DateTime AssignedAt { get; set; }          // Fecha en que se ubicó el equipo
-    public DateTime? RemovedAt { get; set; }          // Fecha en que se retiró (null = sigue ahí)
-    public bool IsCurrent { get; set; } = true;       // ¿Es la ubicación actual?
-    public string? Notes { get; set; }                // Observaciones
+
+    // Referencia al equipo en EquipmentService
+    public Guid EquipmentId { get; set; }
+
+    // Referencia al tipo de equipo en EquipmentService
+    public Guid EquipmentTypeId { get; set; }
+
+    // Snapshot opcional para lectura rápida y trazabilidad
+    public string? EquipmentTypeName { get; set; }
+
+    public DateTime AssignedAt { get; set; }
+    public DateTime? RemovedAt { get; set; }
+    public bool IsCurrent { get; set; } = true;
+    public string? Notes { get; set; }
 
     // Relación con Laboratory
     public Guid LaboratoryId { get; set; }

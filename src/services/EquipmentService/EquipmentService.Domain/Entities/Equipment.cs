@@ -18,4 +18,7 @@ public class Equipment
 
     public Guid EquipmentTypeId { get; set; }
     public EquipmentType EquipmentType { get; set; } = null!;
+
+    public Guid? LaboratoristaUserId { get; set; }
+    public string? LaboratoristaNombre { get; set; }
 }

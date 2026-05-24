@@ -1,4 +1,5 @@
 using EquipmentService.Infrastructure.Data;
+using EquipmentService.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +20,13 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<EquipmentCodeService>();
+
+builder.Services.AddHttpClient<AuthServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:AuthServiceUrl"]!);
+});
 
 var app = builder.Build();
 

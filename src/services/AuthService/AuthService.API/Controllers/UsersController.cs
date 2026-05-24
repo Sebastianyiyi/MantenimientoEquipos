@@ -26,6 +26,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Roles = "Administrador")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -38,6 +39,31 @@ public class UsersController : ControllerBase
     {
         var user = await _userService.GetByMicrosoftIdAsync(microsoftId);
         return user == null ? NotFound() : Ok(user);
+    }
+
+    [HttpGet("{id:guid}/laboratorista-validation")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ValidateLaboratorista(Guid id)
+    {
+        var user = await _userService.GetByIdAsync(id);
+
+        if (user == null)
+            return NotFound(new { message = "Usuario no encontrado." });
+
+        if (!user.IsActive)
+            return BadRequest(new { message = "El usuario está inactivo." });
+
+        if (user.Role != "Laboratorista")
+            return BadRequest(new { message = "El usuario no tiene rol de laboratorista." });
+
+        return Ok(new
+        {
+            user.Id,
+            user.FullName,
+            user.Email,
+            user.Role,
+            user.IsActive
+        });
     }
 
     [HttpPost]

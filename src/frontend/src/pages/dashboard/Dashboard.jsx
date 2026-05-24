@@ -61,7 +61,7 @@ export default function Dashboard() {
             <h3 style={{ marginTop: 0 }}>Accesos Rápidos</h3>
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               <QuickLink to="/equipos"   icon="🖥️" label="Registrar Equipo" />
-              <QuickLink to="/importar"  icon="📤" label="Importar CSV" />
+              <QuickLink to="/equipos/importar"  icon="📤" label="Importar CSV" />
               <QuickLink to="/catalogos" icon="📋" label="Catálogos" />
               {user?.role === 'Administrador' && (
                 <QuickLink to="/usuarios" icon="👥" label="Gestión de Usuarios" />
