@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { equipmentApi } from '../../services/api'
+import { equipmentApi, userApi, locationApi } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
 
 const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
@@ -7,6 +7,7 @@ const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
 export default function Equipos() {
   const [equipments, setEquipments] = useState([])
   const [types, setTypes] = useState([])
+  const [laboratoristas, setLaboratoristas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -15,7 +16,22 @@ export default function Equipos() {
   const [showDetail, setShowDetail] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editingEquipment, setEditingEquipment] = useState(null)
+  const [laboratories, setLaboratories] = useState([])
   const navigate = useNavigate()
+
+  const emptyForm = {
+    assetTag: '',
+    brand: '',
+    model: '',
+    serialNumber: '',
+    equipmentTypeId: '',
+    purchaseDate: '',
+    laboratoristaUserId: '',
+    laboratoryId: '',
+    attributes: []
+  }
+
+  const [form, setForm] = useState(emptyForm)
 
   const getLifecycleStatus = (purchaseDate) => {
     if (!purchaseDate) {
@@ -45,6 +61,16 @@ export default function Equipos() {
     }
   }
 
+  const parseSpecs = (value) => {
+    try {
+      const parsed = JSON.parse(value || '{}')
+      if (Array.isArray(parsed)) return parsed
+      return Object.entries(parsed).map(([key, value]) => ({ key, value }))
+    } catch {
+      return []
+    }
+  }
+
   const openEdit = (eq) => {
     setShowDetail(null)
     setEditingEquipment(eq)
@@ -55,39 +81,64 @@ export default function Equipos() {
       serialNumber: eq.serialNumber ?? '',
       equipmentTypeId: eq.equipmentType?.id ?? '',
       purchaseDate: eq.purchaseDate ?? '',
+      laboratoristaUserId: eq.laboratoristaUserId ?? '',
+      laboratoryId: eq.laboratory?.id ?? '',
       attributes: parseSpecs(eq.specificationsJson)
     })
     setShowForm(true)
   }
 
-  const emptyForm = {
-    assetTag: '',
-    brand: '',
-    model: '',
-    serialNumber: '',
-    equipmentTypeId: '',
-    purchaseDate: '',
-    attributes: []
+  const openNew = () => {
+    setEditingEquipment(null)
+    setForm(emptyForm)
+    setShowForm(true)
   }
-
-  const [form, setForm] = useState(emptyForm)
 
   const load = useCallback(async (searchTerm = search) => {
     try {
       setLoading(true)
+      setError('')
+
       const params = {}
       if (filterStatus) params.status = filterStatus
       if (searchTerm) params.search = searchTerm
 
-      const [eqRes, typRes] = await Promise.all([
+      const [eqRes, typRes, usersRes, labsRes, currentLocationsRes] = await Promise.allSettled([
         equipmentApi.get('/equipments', { params }),
-        equipmentApi.get('/equipment-types')
+        equipmentApi.get('/equipment-types'),
+        userApi.get('/users'),
+        locationApi.get('/laboratorios'),
+        locationApi.get('/equipment-locations')
       ])
 
-      setEquipments(eqRes.data)
-      setTypes(typRes.data)
-    } catch {
-      setError('Error al cargar datos.')
+      if (eqRes.status !== 'fulfilled') throw eqRes.reason
+      if (typRes.status !== 'fulfilled') throw typRes.reason
+      if (labsRes.status !== 'fulfilled') throw labsRes.reason
+      if (currentLocationsRes.status !== 'fulfilled') throw currentLocationsRes.reason
+
+      const usersData = usersRes.status === 'fulfilled' ? usersRes.value.data : []
+      const eqData = eqRes.value.data
+      const typeData = typRes.value.data
+      const labsData = labsRes.value.data
+      const currentLocationsData = currentLocationsRes.value.data
+
+      const locationMap = new Map(
+        currentLocationsData.map(item => [item.equipmentId, item.laboratory])
+      )
+
+      const enrichedEquipments = eqData.map(eq => ({
+        ...eq,
+        laboratory: locationMap.get(eq.id) ?? null
+      }))
+
+      setEquipments(enrichedEquipments)
+      setTypes(typeData)
+      setLaboratoristas(
+        usersData.filter(u => u.role === 'Laboratorista' && u.isActive)
+      )
+      setLaboratories(labsData)
+    } catch (e) {
+      setError(e.response?.data?.message ?? 'Error al cargar datos.')
     } finally {
       setLoading(false)
     }
@@ -102,20 +153,19 @@ export default function Equipos() {
     load(search)
   }
 
-  const openNew = () => {
-    setEditingEquipment(null)
-    setForm(emptyForm)
-    setShowForm(true)
-  }
-
   const handleAttrChange = (idx, field, value) => {
     const attrs = [...form.attributes]
     attrs[idx] = { ...attrs[idx], [field]: value }
     setForm({ ...form, attributes: attrs })
   }
 
-  const addAttr = () => setForm({ ...form, attributes: [...form.attributes, { key: '', value: '' }] })
-  const removeAttr = (idx) => setForm({ ...form, attributes: form.attributes.filter((_, i) => i !== idx) })
+  const addAttr = () => {
+    setForm({ ...form, attributes: [...form.attributes, { key: '', value: '' }] })
+  }
+
+  const removeAttr = (idx) => {
+    setForm({ ...form, attributes: form.attributes.filter((_, i) => i !== idx) })
+  }
 
   const handleSaveUnitario = async () => {
     if (!form.assetTag || !form.brand || !form.model || !form.serialNumber || !form.equipmentTypeId || !form.purchaseDate) {
@@ -135,9 +185,12 @@ export default function Equipos() {
         serialNumber: form.serialNumber,
         equipmentTypeId: form.equipmentTypeId,
         purchaseDate: form.purchaseDate,
+        laboratoristaUserId: form.laboratoristaUserId || null,
         specificationsJson: JSON.stringify(specsObject),
         importSource: editingEquipment ? undefined : 'Manual'
       }
+
+      let savedEquipmentId = editingEquipment?.id
 
       if (editingEquipment) {
         await equipmentApi.put(`/equipments/${editingEquipment.id}`, {
@@ -145,10 +198,24 @@ export default function Equipos() {
           brand: payload.brand,
           model: payload.model,
           purchaseDate: payload.purchaseDate,
-          specificationsJson: payload.specificationsJson
+          specificationsJson: payload.specificationsJson,
+          laboratoristaUserId: payload.laboratoristaUserId
         })
       } else {
-        await equipmentApi.post('/equipments', payload)
+        const createRes = await equipmentApi.post('/equipments', payload)
+        savedEquipmentId = createRes.data.id
+      }
+
+      if (form.laboratoryId) {
+        await locationApi.post('/equipment-locations/assign', {
+          equipmentId: savedEquipmentId,
+          laboratoryId: form.laboratoryId,
+          notes: 'Asignado desde gestión de equipos'
+        })
+      } else if (editingEquipment?.laboratory?.id) {
+        await locationApi.patch(`/equipment-locations/remove/${savedEquipmentId}`, {
+          notes: 'Removido desde gestión de equipos'
+        })
       }
 
       setShowForm(false)
@@ -159,16 +226,6 @@ export default function Equipos() {
       alert(e.response?.data?.message ?? 'Error al guardar.')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const parseSpecs = (value) => {
-    try {
-      const parsed = JSON.parse(value || '{}')
-      if (Array.isArray(parsed)) return parsed
-      return Object.entries(parsed).map(([key, value]) => ({ key, value }))
-    } catch {
-      return []
     }
   }
 
@@ -187,12 +244,17 @@ export default function Equipos() {
         </div>
       </div>
 
-      {error && <div className="alert-error">{error}<button onClick={() => setError('')}>✕</button></div>}
+      {error && (
+        <div className="alert-error">
+          {error}
+          <button onClick={() => setError('')}>✕</button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
           <input
-            placeholder="Buscar por código, asset tag, marca, modelo, serie..."
+            placeholder="Buscar por código, asset tag, marca, modelo, serie o laboratorista..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd' }}
@@ -221,6 +283,7 @@ export default function Equipos() {
                 <th style={th}>Marca</th>
                 <th style={th}>Modelo</th>
                 <th style={th}>N° Serie</th>
+                <th style={th}>Laboratorista</th>
                 <th style={th}>Laboratorio</th>
                 <th style={thCenter}>Estado</th>
                 <th style={thCenter}>Acciones</th>
@@ -236,7 +299,8 @@ export default function Equipos() {
                   <td style={td}>{eq.brand}</td>
                   <td style={td}>{eq.model}</td>
                   <td style={td}>{eq.serialNumber}</td>
-                  <td style={td}>{eq.laboratoryName ?? 'Sin asignar'}</td>
+                  <td style={td}>{eq.laboratoristaNombre ?? 'Sin asignar'}</td>
+                  <td style={td}>{eq.laboratory?.name ?? 'Sin asignar'}</td>
 
                   <td style={tdCenter}>
                     <span
@@ -307,7 +371,7 @@ export default function Equipos() {
 
               {equipments.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                     No hay equipos registrados.
                   </td>
                 </tr>
@@ -324,7 +388,12 @@ export default function Equipos() {
               <h3 style={{ margin: 0 }}>
                 {editingEquipment ? 'Editar Equipo' : 'Registrar Equipo'}
               </h3>
-              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
             </div>
 
             <div style={grid2}>
@@ -345,13 +414,50 @@ export default function Equipos() {
               <label style={labelStyle}>Tipo de Equipo *</label>
               <select
                 value={form.equipmentTypeId}
-                onChange={e => setForm({ ...form, equipmentTypeId: e.target.value })}
+                onChange={e => setForm({
+                  ...form,
+                  equipmentTypeId: e.target.value,
+                  laboratoryId: ''
+                })}
                 style={inputStyle}
                 disabled={!!editingEquipment}
               >
                 <option value="">Seleccione...</option>
                 {types.map(t => (
                   <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={labelStyle}>Laboratorista</label>
+              <select
+                value={form.laboratoristaUserId}
+                onChange={e => setForm({ ...form, laboratoristaUserId: e.target.value })}
+                style={inputStyle}
+              >
+                <option value="">Sin asignar</option>
+                {laboratoristas.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} - {u.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '0.75rem' }}>
+              <label style={labelStyle}>Laboratorio</label>
+              <select
+                value={form.laboratoryId}
+                onChange={e => setForm({ ...form, laboratoryId: e.target.value })}
+                style={inputStyle}
+                disabled={!form.equipmentTypeId}
+              >
+                <option value="">Sin asignar</option>
+                {laboratories.map(l => (
+                  <option key={l.id} value={l.id}>
+                    {l.name} - {l.building ?? 'Sin edificio'} - {l.floor ?? 'Sin piso'}
+                  </option>
                 ))}
               </select>
             </div>
@@ -443,8 +549,8 @@ export default function Equipos() {
                     <Info label="Estado" value={showDetail.status} />
                     <Info label="Fecha de compra" value={showDetail.purchaseDate} />
                     <Info label="Origen" value={showDetail.importSource} />
-                    <Info label="Responsable" value={showDetail.assignedUserName ?? 'Sin asignar'} />
-                    <Info label="Laboratorio" value={showDetail.laboratoryName ?? 'Sin asignar'} />
+                    <Info label="Laboratorista" value={showDetail.laboratoristaNombre ?? 'Sin asignar'} />
+                    <Info label="Laboratorio" value={showDetail.laboratory?.name ?? 'Sin asignar'} />
 
                     <div style={{ marginBottom: '0.25rem' }}>
                       <span style={{ fontSize: '0.75rem', color: '#888', display: 'block' }}>

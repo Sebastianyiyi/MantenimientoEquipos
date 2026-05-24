@@ -21,23 +21,26 @@ public class ImportController : ControllerBase
     }
 
     [HttpPost("preview")]
-    public async Task<IActionResult> Preview([FromForm] IFormFile file, [FromForm] Guid equipmentTypeId)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Preview([FromForm] ImportEquipmentCsvRequest request)
     {
-        if (file == null || file.Length == 0)
+        if (request.File == null || request.File.Length == 0)
             return BadRequest(new { message = "Archivo requerido." });
 
-        if (equipmentTypeId == Guid.Empty)
+        if (request.EquipmentTypeId == Guid.Empty)
             return BadRequest(new { message = "Debe seleccionar un tipo de equipo." });
 
-        var equipmentType = await _context.EquipmentTypes.FirstOrDefaultAsync(t => t.Id == equipmentTypeId);
+        var equipmentType = await _context.EquipmentTypes
+            .FirstOrDefaultAsync(t => t.Id == request.EquipmentTypeId);
+
         if (equipmentType == null)
             return BadRequest(new { message = "El tipo de equipo no existe." });
 
-        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        if (!request.File.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "Solo se aceptan archivos .csv" });
 
         string content;
-        using (var reader = new StreamReader(file.OpenReadStream()))
+        using (var reader = new StreamReader(request.File.OpenReadStream()))
             content = await reader.ReadToEndAsync();
 
         var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -89,23 +92,26 @@ public class ImportController : ControllerBase
     }
 
     [HttpPost("confirm")]
-    public async Task<IActionResult> Confirm([FromForm] IFormFile file, [FromForm] Guid equipmentTypeId)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> Confirm([FromForm] ImportEquipmentCsvRequest request)
     {
-        if (file == null || file.Length == 0)
+        if (request.File == null || request.File.Length == 0)
             return BadRequest(new { message = "Archivo requerido." });
 
-        if (equipmentTypeId == Guid.Empty)
+        if (request.EquipmentTypeId == Guid.Empty)
             return BadRequest(new { message = "Debe seleccionar un tipo de equipo." });
 
-        var equipmentType = await _context.EquipmentTypes.FirstOrDefaultAsync(t => t.Id == equipmentTypeId);
+        var equipmentType = await _context.EquipmentTypes
+            .FirstOrDefaultAsync(t => t.Id == request.EquipmentTypeId);
+
         if (equipmentType == null)
             return BadRequest(new { message = "El tipo de equipo no existe." });
 
-        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        if (!request.File.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { message = "Solo se aceptan archivos .csv" });
 
         string content;
-        using (var reader = new StreamReader(file.OpenReadStream()))
+        using (var reader = new StreamReader(request.File.OpenReadStream()))
             content = await reader.ReadToEndAsync();
 
         var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -124,7 +130,7 @@ public class ImportController : ControllerBase
 
         var equipmentsToInsert = new List<Equipment>();
         var errors = new List<object>();
-        var fileName = file.FileName;
+        var fileName = request.File.FileName;
 
         var seenAssetTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var seenSerials = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -186,7 +192,7 @@ public class ImportController : ControllerBase
                 PurchaseDate = purchaseDate,
                 SpecificationsJson = JsonSerializer.Serialize(dynamicSpecs),
                 ImportSource = fileName,
-                EquipmentTypeId = equipmentTypeId,
+                EquipmentTypeId = request.EquipmentTypeId,
                 Status = "Activo",
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow
@@ -249,4 +255,10 @@ public class ImportController : ControllerBase
             throw;
         }
     }
+}
+
+public class ImportEquipmentCsvRequest
+{
+    public IFormFile File { get; set; } = null!;
+    public Guid EquipmentTypeId { get; set; }
 }

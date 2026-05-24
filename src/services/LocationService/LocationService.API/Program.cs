@@ -1,4 +1,5 @@
 using LocationService.Infrastructure.Data;
+using LocationService.Infrastructure.Http;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +15,11 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
+});
+
+builder.Services.AddHttpClient<EquipmentServiceClient>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["Services:EquipmentService"]!);
 });
 
 builder.Services.AddControllers();

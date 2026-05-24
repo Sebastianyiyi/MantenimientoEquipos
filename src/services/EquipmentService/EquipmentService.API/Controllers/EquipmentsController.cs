@@ -12,18 +12,22 @@ public class EquipmentsController : ControllerBase
 {
     private readonly EquipmentDbContext _context;
     private readonly EquipmentCodeService _codeService;
+    private readonly AuthServiceClient _authServiceClient;
 
-    public EquipmentsController(EquipmentDbContext context, EquipmentCodeService codeService)
+    public EquipmentsController(
+        EquipmentDbContext context,
+        EquipmentCodeService codeService,
+        AuthServiceClient authServiceClient)
     {
         _context = context;
         _codeService = codeService;
+        _authServiceClient = authServiceClient;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? status, [FromQuery] string? search)
     {
         var query = _context.Equipments
-            .Include(e => e.EquipmentType)
             .Where(e => e.IsActive)
             .AsQueryable();
 
@@ -36,7 +40,8 @@ public class EquipmentsController : ControllerBase
                 e.AssetTag.Contains(search) ||
                 e.Brand.Contains(search) ||
                 e.Model.Contains(search) ||
-                e.SerialNumber.Contains(search));
+                e.SerialNumber.Contains(search) ||
+                (e.LaboratoristaNombre != null && e.LaboratoristaNombre.Contains(search)));
 
         var equipments = await query
             .OrderBy(e => e.Code)
@@ -55,6 +60,8 @@ public class EquipmentsController : ControllerBase
                 e.ImportSource,
                 e.CreatedAt,
                 e.UpdatedAt,
+                e.LaboratoristaUserId,
+                e.LaboratoristaNombre,
                 EquipmentType = new
                 {
                     e.EquipmentType.Id,
@@ -91,6 +98,8 @@ public class EquipmentsController : ControllerBase
             equipment.ImportSource,
             equipment.CreatedAt,
             equipment.UpdatedAt,
+            equipment.LaboratoristaUserId,
+            equipment.LaboratoristaNombre,
             EquipmentType = new
             {
                 equipment.EquipmentType.Id,
@@ -120,6 +129,43 @@ public class EquipmentsController : ControllerBase
         {
             var code = await _codeService.GenerateNextCodeAsync(equipmentType.Id, equipmentType.Name);
 
+            LaboratoristaValidationResult? laboratorista = null;
+
+            if (dto.LaboratoristaUserId.HasValue)
+            {
+                try
+                {
+                    laboratorista = await _authServiceClient.ValidateLaboratoristaAsync(dto.LaboratoristaUserId.Value);
+                }
+                catch (Exception ex)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(new
+                    {
+                        message = "No se pudo validar el laboratorista.",
+                        detail = ex.Message
+                    });
+                }
+
+                if (laboratorista == null)
+                {
+                    await tx.RollbackAsync();
+                    return NotFound(new { message = "El usuario asignado no existe." });
+                }
+
+                if (!laboratorista.IsActive)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(new { message = "El usuario asignado está inactivo." });
+                }
+
+                if (laboratorista.Role != "Laboratorista")
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(new { message = "El usuario asignado no tiene rol de laboratorista." });
+                }
+            }
+
             var equipment = new Equipment
             {
                 Id = Guid.NewGuid(),
@@ -134,7 +180,9 @@ public class EquipmentsController : ControllerBase
                 SpecificationsJson = string.IsNullOrWhiteSpace(dto.SpecificationsJson) ? "{}" : dto.SpecificationsJson,
                 ImportSource = string.IsNullOrWhiteSpace(dto.ImportSource) ? "Manual" : dto.ImportSource,
                 EquipmentTypeId = dto.EquipmentTypeId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LaboratoristaUserId = laboratorista?.Id,
+                LaboratoristaNombre = laboratorista?.FullName
             };
 
             _context.Equipments.Add(equipment);
@@ -171,6 +219,42 @@ public class EquipmentsController : ControllerBase
         equipment.Model = dto.Model;
         equipment.PurchaseDate = dto.PurchaseDate;
         equipment.SpecificationsJson = string.IsNullOrWhiteSpace(dto.SpecificationsJson) ? "{}" : dto.SpecificationsJson;
+
+        if (dto.LaboratoristaUserId.HasValue)
+        {
+            LaboratoristaValidationResult? laboratorista;
+
+            try
+            {
+                laboratorista = await _authServiceClient.ValidateLaboratoristaAsync(dto.LaboratoristaUserId.Value);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = "No se pudo validar el laboratorista.",
+                    detail = ex.Message
+                });
+            }
+
+            if (laboratorista == null)
+                return NotFound(new { message = "El usuario asignado no existe." });
+
+            if (!laboratorista.IsActive)
+                return BadRequest(new { message = "El usuario asignado está inactivo." });
+
+            if (laboratorista.Role != "Laboratorista")
+                return BadRequest(new { message = "El usuario asignado no tiene rol de laboratorista." });
+
+            equipment.LaboratoristaUserId = laboratorista.Id;
+            equipment.LaboratoristaNombre = laboratorista.FullName;
+        }
+        else
+        {
+            equipment.LaboratoristaUserId = null;
+            equipment.LaboratoristaNombre = null;
+        }
+
         equipment.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -214,7 +298,6 @@ public class EquipmentsController : ControllerBase
 
         var porTipo = await _context.Equipments
             .Where(e => e.IsActive)
-            .Include(e => e.EquipmentType)
             .GroupBy(e => e.EquipmentType.Name)
             .Select(g => new
             {
@@ -224,6 +307,60 @@ public class EquipmentsController : ControllerBase
             .ToListAsync();
 
         return Ok(new { total, activos, enMantenimiento, dadosDeBaja, porTipo });
+    }
+
+    [HttpPatch("{id:guid}/assign-laboratorista")]
+    public async Task<IActionResult> AssignLaboratorista(Guid id, [FromBody] AssignLaboratoristaDto dto)
+    {
+        var equipment = await _context.Equipments
+            .FirstOrDefaultAsync(e => e.Id == id && e.IsActive);
+
+        if (equipment == null)
+            return NotFound(new { message = "Equipo no encontrado." });
+
+        if (dto.UserId == Guid.Empty)
+            return BadRequest(new { message = "Debe seleccionar un laboratorista válido." });
+
+        LaboratoristaValidationResult? laboratorista;
+
+        try
+        {
+            laboratorista = await _authServiceClient.ValidateLaboratoristaAsync(dto.UserId);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new
+            {
+                message = "No se pudo validar el laboratorista.",
+                detail = ex.Message
+            });
+        }
+
+        if (laboratorista == null)
+            return NotFound(new { message = "El usuario no existe." });
+
+        if (!laboratorista.IsActive)
+            return BadRequest(new { message = "El usuario está inactivo." });
+
+        if (laboratorista.Role != "Laboratorista")
+            return BadRequest(new { message = "El usuario no tiene rol de laboratorista." });
+
+        equipment.LaboratoristaUserId = laboratorista.Id;
+        equipment.LaboratoristaNombre = laboratorista.FullName;
+        equipment.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Laboratorista asignado correctamente.",
+            laboratorista = new
+            {
+                laboratorista.Id,
+                laboratorista.FullName,
+                laboratorista.Email
+            }
+        });
     }
 }
 
@@ -237,6 +374,7 @@ public class CreateEquipmentDto
     public string? SpecificationsJson { get; set; }
     public string? ImportSource { get; set; }
     public Guid EquipmentTypeId { get; set; }
+    public Guid? LaboratoristaUserId { get; set; }
 }
 
 public class UpdateEquipmentDto
@@ -246,9 +384,15 @@ public class UpdateEquipmentDto
     public string Model { get; set; } = null!;
     public DateOnly PurchaseDate { get; set; }
     public string? SpecificationsJson { get; set; }
+    public Guid? LaboratoristaUserId { get; set; }
 }
 
 public class UpdateStatusDto
 {
     public string Status { get; set; } = null!;
+}
+
+public class AssignLaboratoristaDto
+{
+    public Guid UserId { get; set; }
 }

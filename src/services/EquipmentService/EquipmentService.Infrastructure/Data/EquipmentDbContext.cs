@@ -102,6 +102,11 @@ public class EquipmentDbContext : DbContext
                     "CK_Equipments_SpecificationsJson",
                     "ISJSON([SpecificationsJson]) = 1");
             });
+
+            entity.Property(e => e.LaboratoristaUserId);
+
+            entity.Property(e => e.LaboratoristaNombre)
+                .HasMaxLength(150);
         });
 
         modelBuilder.Entity<EquipmentCodeCounter>(entity =>
