@@ -60,22 +60,21 @@ export default function Casos() {
     try {
       setLoading(true)
       setError('')
-      const [ticketsRes, eqRes, usersRes] = await Promise.allSettled([
+      const [ticketsRes, eqRes] = await Promise.allSettled([
         maintenanceApi.get('/tickets'),
         equipmentApi.get('/equipments'),
-        userApi.get('/users'),
       ])
-
       if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
-
+      if (eqRes.status !== 'fulfilled') throw eqRes.reason
       setTickets(ticketsRes.value.data)
-      if (eqRes.status === 'fulfilled') setEquipments(eqRes.value.data)
+      setEquipments(eqRes.value.data)
 
-      if (usersRes.status === 'fulfilled') {
-        console.log('USUARIOS CARGADOS:', usersRes.value.data)
-        setUsuarios(usersRes.value.data)
-      } else {
-        console.error('ERROR USERS:', usersRes.reason)
+      // Solo intentar cargar usuarios, sin romper si falla (ej: Laboratorista no tiene acceso)
+      try {
+        const usersRes = await userApi.get('/users')
+        setUsuarios(usersRes.data)
+      } catch {
+        // silencioso, no todos los roles pueden ver usuarios
       }
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar los casos.')
@@ -277,25 +276,12 @@ const availableEquipments = equipments.filter(eq =>
   }
 
   const getUserName = (userId) => {
-    if (!userId) return 'Desconocido'
-
-    const u = usuarios.find(u => (u.id ?? u.Id) === userId)
-
-    if (u) {
-      return (
-        u.fullName ??
-        u.FullName ??
-        u.name ??
-        u.Name ??
-        u.email ??
-        u.Email ??
-        String(userId).slice(0, 8)
-      )
-    }
-
-    if (user?.id && userId === user.id) return user.fullName ?? user.FullName ?? 'Yo'
-
-    return String(userId).slice(0, 8) + '…'
+    if (!userId || userId === '00000000-0000-0000-0000-000000000000') 
+      return 'Desconocido'
+    if (user?.id && userId === user.id) 
+      return user.fullName ?? user.FullName ?? 'Yo'
+    const found = usuarios.find(u => u.id === userId)
+    return found ? found.fullName : `Usuario (${userId.substring(0, 8)}...)`
   }
 
   const formatDate = (dateStr) => {
