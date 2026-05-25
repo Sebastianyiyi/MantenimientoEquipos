@@ -16,18 +16,19 @@ public class MaintenanceDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Ticket
         modelBuilder.Entity<Ticket>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.TicketNumber).IsRequired().HasMaxLength(32);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(256);
             entity.Property(e => e.Description).HasMaxLength(1024);
-            entity.Property(e => e.MaintenanceType).IsRequired().HasMaxLength(64);
             entity.Property(e => e.Status).IsRequired().HasMaxLength(64);
             entity.Property(e => e.Priority).IsRequired().HasMaxLength(32);
             entity.HasIndex(e => e.TicketNumber).IsUnique();
         });
 
+        // TicketEquipment
         modelBuilder.Entity<TicketEquipment>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -40,21 +41,37 @@ public class MaintenanceDbContext : DbContext
                   .HasForeignKey(e => e.TicketId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            // Un equipo no puede estar duplicado en el mismo ticket
             entity.HasIndex(e => new { e.TicketId, e.EquipmentId }).IsUnique();
         });
 
+        // StatusHistory
+        modelBuilder.Entity<StatusHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.PreviousStatus).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.NewStatus).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Comment).HasMaxLength(1024);
+        });
+
+        // TicketTechnician
         modelBuilder.Entity<TicketTechnician>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.ActivityDescription).HasMaxLength(2048);
+            entity.Property(e => e.Observations).HasMaxLength(2048);
 
             entity.HasOne(e => e.TicketEquipment)
                   .WithMany(te => te.TicketTechnicians)
                   .HasForeignKey(e => e.TicketEquipmentId)
                   .OnDelete(DeleteBehavior.Cascade);
 
+            // Un técnico no puede estar asignado dos veces al mismo equipo del ticket
             entity.HasIndex(e => new { e.TicketEquipmentId, e.TechnicianUserId }).IsUnique();
         });
 
+        // Activity
         modelBuilder.Entity<Activity>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -66,6 +83,7 @@ public class MaintenanceDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // Resource
         modelBuilder.Entity<Resource>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -76,16 +94,6 @@ public class MaintenanceDbContext : DbContext
                   .WithMany(te => te.Resources)
                   .HasForeignKey(e => e.TicketEquipmentId)
                   .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<StatusHistory>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.EntityType).IsRequired().HasMaxLength(32);
-            entity.Property(e => e.PreviousStatus).IsRequired().HasMaxLength(64);
-            entity.Property(e => e.NewStatus).IsRequired().HasMaxLength(64);
-            entity.Property(e => e.Comment).HasMaxLength(512);
-            entity.HasIndex(e => new { e.EntityType, e.EntityId });
         });
     }
 }
