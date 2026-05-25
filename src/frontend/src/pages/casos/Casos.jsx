@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
+import TicketTechnicians from '../mantenimiento/TicketTechnicians'
+import TicketResources from '../mantenimiento/TicketResources'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
@@ -69,7 +71,6 @@ export default function Casos() {
       setTickets(ticketsRes.value.data)
       setEquipments(eqRes.value.data)
 
-      // Solo intentar cargar usuarios, sin romper si falla (ej: Laboratorista no tiene acceso)
       try {
         const usersRes = await userApi.get('/users')
         setUsuarios(usersRes.data)
@@ -105,32 +106,24 @@ export default function Casos() {
 
   const filtered = [...tickets]
     .filter(t => {
-    const matchSearch = !search ||
-      t.ticketNumber?.toLowerCase().includes(search.toLowerCase()) ||
-      t.title?.toLowerCase().includes(search.toLowerCase())
+      const matchSearch = !search ||
+        t.ticketNumber?.toLowerCase().includes(search.toLowerCase()) ||
+        t.title?.toLowerCase().includes(search.toLowerCase())
+      const matchStatus = !filterStatus || t.status === filterStatus
+      const matchType = !filterType || t.maintenanceType === filterType
+      return matchSearch && matchStatus && matchType
+    })
+    .sort((a, b) => getCaseNumberValue(b.ticketNumber) - getCaseNumberValue(a.ticketNumber))
 
-    const matchStatus = !filterStatus || t.status === filterStatus
-    const matchType = !filterType || t.maintenanceType === filterType
+  const occupiedEquipmentIds = new Set(
+    tickets
+      .filter(t => t.status !== 'Terminado' && t.id !== editingTicket?.id)
+      .flatMap(t => t.equipmentIds ?? [])
+  )
 
-    return matchSearch && matchStatus && matchType
-  })
-  .sort((a, b) => getCaseNumberValue(b.ticketNumber) - getCaseNumberValue(a.ticketNumber))
-
-
-  // Equipos usados en casos activos, excepto el caso que se está editando
-const occupiedEquipmentIds = new Set(
-  tickets
-    .filter(t =>
-      t.status !== 'Terminado' &&
-      t.id !== editingTicket?.id
-    )
-    .flatMap(t => t.equipmentIds ?? [])
-)
-
-// Solo equipos activos y no ocupados pueden seleccionarse
-const availableEquipments = equipments.filter(eq =>
-  eq.status === 'Activo' && !occupiedEquipmentIds.has(eq.id)
-)
+  const availableEquipments = equipments.filter(eq =>
+    eq.status === 'Activo' && !occupiedEquipmentIds.has(eq.id)
+  )
 
   const openNew = async () => {
     setEditingTicket(null)
@@ -139,10 +132,8 @@ const availableEquipments = equipments.filter(eq =>
 
     try {
       const res = await maintenanceApi.get('/tickets/next-code')
-      console.log('NEXT CODE:', res.data)
       setPreviewCode(res.data.ticketNumber)
-    } catch (err) {
-      console.error('ERROR NEXT CODE:', err)
+    } catch {
       setPreviewCode('')
     }
 
@@ -272,13 +263,13 @@ const availableEquipments = equipments.filter(eq =>
     const tag   = eq.assetTag ?? eq.AssetTag ?? ''
     const brand = eq.brand    ?? eq.Brand    ?? ''
     const model = eq.model    ?? eq.Model    ?? ''
-    return `${tag} — ${brand} ${model}`.trim()
+    return `${tag} – ${brand} ${model}`.trim()
   }
 
   const getUserName = (userId) => {
-    if (!userId || userId === '00000000-0000-0000-0000-000000000000') 
+    if (!userId || userId === '00000000-0000-0000-0000-000000000000')
       return 'Desconocido'
-    if (user?.id && userId === user.id) 
+    if (user?.id && userId === user.id)
       return user.fullName ?? user.FullName ?? 'Yo'
     const found = usuarios.find(u => u.id === userId)
     return found ? found.fullName : `Usuario (${userId.substring(0, 8)}...)`
@@ -320,7 +311,7 @@ const availableEquipments = equipments.filter(eq =>
           borderRadius: 8, padding: '0.75rem 1rem',
           marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'
         }}>
-          <span style={{ color: '#166534', fontWeight: 600 }}>✓ Caso creado:</span>
+          <span style={{ color: '#166534', fontWeight: 600 }}>✔ Caso creado:</span>
           <code style={{ fontWeight: 700, color: '#166534', fontSize: '1rem' }}>{lastCreatedCode}</code>
           <button onClick={() => setLastCreatedCode(null)}
             style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>✕</button>
@@ -413,13 +404,7 @@ const availableEquipments = equipments.filter(eq =>
               <input
                 value={editingTicket?.ticketNumber ?? previewCode}
                 readOnly
-                style={{
-                  ...inputStyle,
-                  background: '#f9fafb',
-                  color: '#374151',
-                  fontWeight: 600,
-                  cursor: 'not-allowed'
-                }}
+                style={{ ...inputStyle, background: '#f9fafb', color: '#374151', fontWeight: 600, cursor: 'not-allowed' }}
               />
             </div>
 
@@ -489,7 +474,7 @@ const availableEquipments = equipments.filter(eq =>
                       style={{ width: 15, height: 15, accentColor: '#2563eb', cursor: 'pointer' }}
                     />
                     <span style={{ fontSize: '0.875rem' }}>
-                      <strong>{eq.assetTag}</strong> — {eq.brand} {eq.model}
+                      <strong>{eq.assetTag}</strong> – {eq.brand} {eq.model}
                       {eq.serialNumber && <span style={{ color: '#888' }}> · {eq.serialNumber}</span>}
                     </span>
                   </label>
@@ -507,7 +492,7 @@ const availableEquipments = equipments.filter(eq =>
         </div>
       )}
 
-      {/* ── MODAL DETALLE + CONTROL DE ESTADOS (HU-12) ── */}
+      {/* ── MODAL DETALLE ── */}
       {showDetail && (
         <div style={overlay}>
           <div style={{ ...modal, maxWidth: 680 }}>
@@ -588,9 +573,62 @@ const availableEquipments = equipments.filter(eq =>
                       </button>
                     )}
                     {te.status === 'Terminado' && (
-                      <span style={{ fontSize: '0.78rem', color: '#166534' }}>✓ Completado</span>
+                      <span style={{ fontSize: '0.78rem', color: '#166534' }}>✔ Completado</span>
                     )}
                   </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
+            )}
+
+            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
+
+            {/* ── HU-09: Técnicos por equipo ── */}
+            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
+              Técnicos Asignados
+            </p>
+
+            {showDetail.ticketEquipments?.length > 0 ? (
+              showDetail.ticketEquipments.map(te => (
+                <div key={`tech-${te.id}`} style={{ marginBottom: '1rem' }}>
+                  <p style={{
+                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
+                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
+                  }}>
+                    {getEquipmentLabel(te.equipmentId)}
+                  </p>
+                  <TicketTechnicians
+                    ticketEquipmentId={te.id}
+                    ticketStatus={showDetail.status}
+                    availableTechnicians={usuarios.map(u => ({ id: u.id, name: u.fullName }))}
+                  />
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
+            )}
+
+            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
+
+            {/* ── HU-11: Recursos por equipo ── */}
+            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
+              Recursos Utilizados
+            </p>
+
+            {showDetail.ticketEquipments?.length > 0 ? (
+              showDetail.ticketEquipments.map(te => (
+                <div key={`res-${te.id}`} style={{ marginBottom: '1rem' }}>
+                  <p style={{
+                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
+                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
+                  }}>
+                    {getEquipmentLabel(te.equipmentId)}
+                  </p>
+                  <TicketResources
+                    ticketEquipmentId={te.id}
+                    ticketStatus={showDetail.status}
+                  />
                 </div>
               ))
             ) : (
@@ -628,7 +666,7 @@ const availableEquipments = equipments.filter(eq =>
                 </button>
               )}
               {showDetail.status === 'Terminado' && (
-                <span style={{ color: '#166534', fontWeight: 600 }}>✓ Caso cerrado</span>
+                <span style={{ color: '#166534', fontWeight: 600 }}>✔ Caso cerrado</span>
               )}
             </div>
 
@@ -669,7 +707,7 @@ const availableEquipments = equipments.filter(eq =>
                             <span style={{ fontWeight: 600 }}>
                               {h.entityType === 'Ticket' ? 'Caso' : 'Equipo'}
                             </span>
-                            {' — '}
+                            {' – '}
                             <Badge colors={STATUS_COLORS[h.previousStatus]}>{h.previousStatus}</Badge>
                             {' → '}
                             <Badge colors={STATUS_COLORS[h.newStatus]}>{h.newStatus}</Badge>
