@@ -20,4 +20,8 @@ public class TicketEquipment
     public ICollection<TicketTechnician> TicketTechnicians { get; set; } = new List<TicketTechnician>();
     public ICollection<Activity> Activities { get; set; } = new List<Activity>();
     public ICollection<Resource> Resources { get; set; } = new List<Resource>();
+
+    // HU-10: catálogo de actividades y diagnósticos
+    public ICollection<TicketEquipmentActivity> TicketEquipmentActivities { get; set; } = new List<TicketEquipmentActivity>();
+    public ICollection<TicketEquipmentDiagnosis> TicketEquipmentDiagnoses { get; set; } = new List<TicketEquipmentDiagnosis>();
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { equipmentApi, locationApi } from '../../services/api'
+import { equipmentApi, locationApi, maintenanceApi } from '../../services/api'
 import './Catalogos.css'
 
 export default function Catalogos() {
@@ -11,25 +11,25 @@ export default function Catalogos() {
       <p className="catalogos-subtitle">Administración de catálogos del sistema</p>
 
       <div className="catalogos-tabs">
-        <button
-          className={`tab-btn ${tab === 'tipos' ? 'active' : ''}`}
-          onClick={() => setTab('tipos')}
-          type="button"
-        >
+        <button className={`tab-btn ${tab === 'tipos' ? 'active' : ''}`} onClick={() => setTab('tipos')} type="button">
           Tipos de Equipo
         </button>
-        <button
-          className={`tab-btn ${tab === 'laboratorios' ? 'active' : ''}`}
-          onClick={() => setTab('laboratorios')}
-          type="button"
-        >
+        <button className={`tab-btn ${tab === 'laboratorios' ? 'active' : ''}`} onClick={() => setTab('laboratorios')} type="button">
           Laboratorios
+        </button>
+        <button className={`tab-btn ${tab === 'activities' ? 'active' : ''}`} onClick={() => setTab('activities')} type="button">
+          Actividades
+        </button>
+        <button className={`tab-btn ${tab === 'diagnoses' ? 'active' : ''}`} onClick={() => setTab('diagnoses')} type="button">
+          Diagnósticos
         </button>
       </div>
 
       <div className="catalogos-content">
-        {tab === 'tipos' && <TiposEquipo />}
+        {tab === 'tipos'        && <TiposEquipo />}
         {tab === 'laboratorios' && <Laboratorios />}
+        {tab === 'activities'   && <CatalogActivities />}
+        {tab === 'diagnoses'    && <CatalogDiagnoses />}
       </div>
     </div>
   )
@@ -618,6 +618,325 @@ function Laboratorios() {
               </button>
               <button className="btn-danger" onClick={confirmDelete} type="button">
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+/* ─── Catálogo de Actividades (HU-10) ────────────────────────── */
+const ACTIVITY_CATEGORIES = ['Correctivo', 'Preventivo', 'Adaptativo']
+const CATEGORY_COLORS = {
+  Correctivo: { bg: '#fee2e2', color: '#991b1b' },
+  Preventivo: { bg: '#e0f2fe', color: '#075985' },
+  Adaptativo: { bg: '#f3e8ff', color: '#6b21a8' },
+}
+
+function CatalogActivities() {
+  const [items,   setItems]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]  = useState(null)
+  const [form,    setForm]    = useState({ name: '', description: '', category: 'Preventivo', isActive: true })
+  const [saving,  setSaving]  = useState(false)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await maintenanceApi.get('/catalog/activities')
+      setItems(res.data)
+    } catch { setError('Error al cargar actividades') }
+    finally   { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', description: '', category: 'Preventivo', isActive: true })
+    setShowForm(true)
+  }
+
+  const openEdit = (item) => {
+    setEditing(item)
+    setForm({ name: item.name, description: item.description ?? '', category: item.category, isActive: item.isActive })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+    setSaving(true)
+    try {
+      if (editing) {
+        await maintenanceApi.put(`/catalog/activities/${editing.id}`, form)
+      } else {
+        await maintenanceApi.post('/catalog/activities', form)
+      }
+      setShowForm(false)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'Error al guardar') }
+    finally    { setSaving(false) }
+  }
+
+  const handleDelete = async (item) => {
+    if (!confirm(`¿Eliminar la actividad "${item.name}"?`)) return
+    try {
+      await maintenanceApi.delete(`/catalog/activities/${item.id}`)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'No se puede eliminar') }
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error)   return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Actividades de Mantenimiento</h3>
+          <p>Catálogo de actividades que pueden registrarse en los casos</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">+ Agregar Actividad</button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Nombre</th><th>Descripción</th><th>Categoría</th><th className="cat-center">Estado</th><th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td style={{ fontWeight: 600 }}>{item.name}</td>
+              <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{item.description ?? '—'}</td>
+              <td>
+                <span style={{
+                  padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.78rem', fontWeight: 600,
+                  background: CATEGORY_COLORS[item.category]?.bg, color: CATEGORY_COLORS[item.category]?.color,
+                }}>{item.category}</span>
+              </td>
+              <td className="cat-center">
+                <span style={{ color: item.isActive ? '#166534' : '#9ca3af', fontWeight: 600, fontSize: '0.82rem' }}>
+                  {item.isActive ? '● Activo' : '○ Inactivo'}
+                </span>
+              </td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button className="action-icon-btn" onClick={() => openEdit(item)} title="Editar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                    </svg>
+                  </button>
+                  <button className="action-icon-btn" onClick={() => handleDelete(item)} title="Eliminar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td colSpan={6} className="cat-empty">No hay actividades registradas.</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal">
+            <h4>{editing ? 'Editar Actividad' : 'Nueva Actividad'}</h4>
+
+            <label>Nombre *</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Limpieza interna" />
+
+            <label>Descripción</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
+
+            <label>Categoría *</label>
+            <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+              {ACTIVITY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {editing && (
+              <>
+                <label>Estado</label>
+                <select value={form.isActive ? 'true' : 'false'} onChange={e => setForm({ ...form, isActive: e.target.value === 'true' })}>
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
+                </select>
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving} type="button">
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Catálogo de Diagnósticos (HU-10) ───────────────────────── */
+const DIAGNOSIS_SEVERITIES = ['Baja', 'Media', 'Alta']
+const SEVERITY_COLORS = {
+  Alta:  { bg: '#fee2e2', color: '#991b1b' },
+  Media: { bg: '#fef9c3', color: '#854d0e' },
+  Baja:  { bg: '#f0fdf4', color: '#166534' },
+}
+
+function CatalogDiagnoses() {
+  const [items,   setItems]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]  = useState(null)
+  const [form,    setForm]    = useState({ name: '', description: '', severity: 'Media', isActive: true })
+  const [saving,  setSaving]  = useState(false)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await maintenanceApi.get('/catalog/diagnoses')
+      setItems(res.data)
+    } catch { setError('Error al cargar diagnósticos') }
+    finally   { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', description: '', severity: 'Media', isActive: true })
+    setShowForm(true)
+  }
+
+  const openEdit = (item) => {
+    setEditing(item)
+    setForm({ name: item.name, description: item.description ?? '', severity: item.severity, isActive: item.isActive })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+    setSaving(true)
+    try {
+      if (editing) {
+        await maintenanceApi.put(`/catalog/diagnoses/${editing.id}`, form)
+      } else {
+        await maintenanceApi.post('/catalog/diagnoses', form)
+      }
+      setShowForm(false)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'Error al guardar') }
+    finally    { setSaving(false) }
+  }
+
+  const handleDelete = async (item) => {
+    if (!confirm(`¿Eliminar el diagnóstico "${item.name}"?`)) return
+    try {
+      await maintenanceApi.delete(`/catalog/diagnoses/${item.id}`)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'No se puede eliminar') }
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error)   return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Diagnósticos de Mantenimiento</h3>
+          <p>Catálogo de diagnósticos identificables en los equipos</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">+ Agregar Diagnóstico</button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Nombre</th><th>Descripción</th><th>Severidad</th><th className="cat-center">Estado</th><th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td style={{ fontWeight: 600 }}>{item.name}</td>
+              <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{item.description ?? '—'}</td>
+              <td>
+                <span style={{
+                  padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.78rem', fontWeight: 600,
+                  background: SEVERITY_COLORS[item.severity]?.bg, color: SEVERITY_COLORS[item.severity]?.color,
+                }}>{item.severity}</span>
+              </td>
+              <td className="cat-center">
+                <span style={{ color: item.isActive ? '#166534' : '#9ca3af', fontWeight: 600, fontSize: '0.82rem' }}>
+                  {item.isActive ? '● Activo' : '○ Inactivo'}
+                </span>
+              </td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button className="action-icon-btn" onClick={() => openEdit(item)} title="Editar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                    </svg>
+                  </button>
+                  <button className="action-icon-btn" onClick={() => handleDelete(item)} title="Eliminar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td colSpan={6} className="cat-empty">No hay diagnósticos registrados.</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal">
+            <h4>{editing ? 'Editar Diagnóstico' : 'Nuevo Diagnóstico'}</h4>
+
+            <label>Nombre *</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Sobrecalentamiento" />
+
+            <label>Descripción</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
+
+            <label>Severidad *</label>
+            <select value={form.severity} onChange={e => setForm({ ...form, severity: e.target.value })}>
+              {DIAGNOSIS_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {editing && (
+              <>
+                <label>Estado</label>
+                <select value={form.isActive ? 'true' : 'false'} onChange={e => setForm({ ...form, isActive: e.target.value === 'true' })}>
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
+                </select>
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving} type="button">
+                {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
           </div>

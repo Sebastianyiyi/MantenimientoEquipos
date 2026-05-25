@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
 import TicketTechnicians from '../mantenimiento/TicketTechnicians'
 import TicketResources from '../mantenimiento/TicketResources'
+import TicketActivitiesDiagnoses from '../mantenimiento/TicketActivitiesDiagnoses'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
@@ -602,6 +603,32 @@ export default function Casos() {
                     ticketEquipmentId={te.id}
                     ticketStatus={showDetail.status}
                     availableTechnicians={usuarios.map(u => ({ id: u.id, name: u.fullName }))}
+                  />
+                </div>
+              ))
+            ) : (
+              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
+            )}
+
+            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
+
+            {/* ── HU-10: Actividades y Diagnósticos por equipo ── */}
+            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
+              Actividades y Diagnósticos
+            </p>
+
+            {showDetail.ticketEquipments?.length > 0 ? (
+              showDetail.ticketEquipments.map(te => (
+                <div key={`actdiag-${te.id}`} style={{ marginBottom: '1rem' }}>
+                  <p style={{
+                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
+                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
+                  }}>
+                    {getEquipmentLabel(te.equipmentId)}
+                  </p>
+                  <TicketActivitiesDiagnoses
+                    ticketEquipmentId={te.id}
+                    ticketStatus={showDetail.status}
                   />
                 </div>
               ))
