@@ -40,6 +40,7 @@ export default function Casos() {
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType]     = useState('')
+  const [previewCode, setPreviewCode] = useState('')
 
   const [showForm, setShowForm]           = useState(false)
   const [showDetail, setShowDetail]       = useState(null)
@@ -64,11 +65,18 @@ export default function Casos() {
         equipmentApi.get('/equipments'),
         userApi.get('/users'),
       ])
-      // Solo tickets es crítico; equipos y usuarios fallan silenciosamente
+
       if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
+
       setTickets(ticketsRes.value.data)
       if (eqRes.status === 'fulfilled') setEquipments(eqRes.value.data)
-      if (usersRes.status === 'fulfilled') setUsuarios(usersRes.value.data)
+
+      if (usersRes.status === 'fulfilled') {
+        console.log('USUARIOS CARGADOS:', usersRes.value.data)
+        setUsuarios(usersRes.value.data)
+      } else {
+        console.error('ERROR USERS:', usersRes.reason)
+      }
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar los casos.')
     } finally {
@@ -90,22 +98,55 @@ export default function Casos() {
     }
   }
 
-  const filtered = tickets.filter(t => {
+  const getCaseNumberValue = (ticketNumber) => {
+    if (!ticketNumber) return 0
+    const parts = ticketNumber.split('-')
+    return Number(parts[parts.length - 1]) || 0
+  }
+
+  const filtered = [...tickets]
+    .filter(t => {
     const matchSearch = !search ||
       t.ticketNumber?.toLowerCase().includes(search.toLowerCase()) ||
       t.title?.toLowerCase().includes(search.toLowerCase())
+
     const matchStatus = !filterStatus || t.status === filterStatus
-    const matchType   = !filterType   || t.maintenanceType === filterType
+    const matchType = !filterType || t.maintenanceType === filterType
+
     return matchSearch && matchStatus && matchType
   })
+  .sort((a, b) => getCaseNumberValue(b.ticketNumber) - getCaseNumberValue(a.ticketNumber))
 
-  // Solo equipos Activos son seleccionables para nuevos casos
-  const availableEquipments = equipments.filter(eq => eq.status === 'Activo')
 
-  const openNew = () => {
+  // Equipos usados en casos activos, excepto el caso que se está editando
+const occupiedEquipmentIds = new Set(
+  tickets
+    .filter(t =>
+      t.status !== 'Terminado' &&
+      t.id !== editingTicket?.id
+    )
+    .flatMap(t => t.equipmentIds ?? [])
+)
+
+// Solo equipos activos y no ocupados pueden seleccionarse
+const availableEquipments = equipments.filter(eq =>
+  eq.status === 'Activo' && !occupiedEquipmentIds.has(eq.id)
+)
+
+  const openNew = async () => {
     setEditingTicket(null)
     setLastCreatedCode(null)
     setForm({ title: '', description: '', maintenanceType: '', priority: 'Media', equipmentIds: [] })
+
+    try {
+      const res = await maintenanceApi.get('/tickets/next-code')
+      console.log('NEXT CODE:', res.data)
+      setPreviewCode(res.data.ticketNumber)
+    } catch (err) {
+      console.error('ERROR NEXT CODE:', err)
+      setPreviewCode('')
+    }
+
     setShowForm(true)
   }
 
@@ -237,9 +278,23 @@ export default function Casos() {
 
   const getUserName = (userId) => {
     if (!userId) return 'Desconocido'
-    const u = usuarios.find(u => u.id === userId)
-    if (u) return u.fullName ?? u.email ?? String(userId).slice(0, 8)
-    if (user?.id && userId === user.id) return user.fullName ?? 'Yo'
+
+    const u = usuarios.find(u => (u.id ?? u.Id) === userId)
+
+    if (u) {
+      return (
+        u.fullName ??
+        u.FullName ??
+        u.name ??
+        u.Name ??
+        u.email ??
+        u.Email ??
+        String(userId).slice(0, 8)
+      )
+    }
+
+    if (user?.id && userId === user.id) return user.fullName ?? user.FullName ?? 'Yo'
+
     return String(userId).slice(0, 8) + '…'
   }
 
@@ -370,9 +425,15 @@ export default function Casos() {
             <div style={{ marginBottom: '0.75rem' }}>
               <label style={labelStyle}>Código del caso</label>
               <input
-                value="Se generará automáticamente (ej: CASE-2026-0001)"
+                value={editingTicket?.ticketNumber ?? previewCode}
                 readOnly
-                style={{ ...inputStyle, background: '#f9fafb', color: '#9ca3af', fontStyle: 'italic', cursor: 'not-allowed' }}
+                style={{
+                  ...inputStyle,
+                  background: '#f9fafb',
+                  color: '#374151',
+                  fontWeight: 600,
+                  cursor: 'not-allowed'
+                }}
               />
             </div>
 
@@ -627,7 +688,7 @@ export default function Casos() {
                             {' → '}
                             <Badge colors={STATUS_COLORS[h.newStatus]}>{h.newStatus}</Badge>
                             <span style={{ color: '#6b7280', marginLeft: 6 }}>
-                              por <strong>{getUserName(h.changedByUserId)}</strong>
+                              por <strong>{h.changedByUserName ?? getUserName(h.changedByUserId)}</strong>
                             </span>
                             {h.comment && <span style={{ color: '#6b7280' }}> · {h.comment}</span>}
                           </div>
