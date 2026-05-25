@@ -51,7 +51,13 @@ const addAuthInterceptor = (instance) => {
       })
 
       if (status === 403) {
-        window.location.href = '/sin-acceso'
+        // Solo redirigir a sin-acceso si NO es una llamada de datos secundaria.
+        // /users falla con 403 para Laboratoristas pero no debe expulsar de la página.
+        const IGNORAR_403 = ['/users', '/catalogos', '/tipos']
+        const esLlamadaSecundaria = IGNORAR_403.some(path => url.includes(path))
+        if (!esLlamadaSecundaria) {
+          window.location.href = '/sin-acceso'
+        }
       }
 
       // TEMPORAL: no borrar sesión ni redirigir en 401

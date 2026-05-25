@@ -47,6 +47,7 @@ export default function MsalRedirectHandler() {
 
         login(
           {
+            id: data.id ?? data.userId ?? data.Id,
             fullName: data.fullName,
             email: data.email,
             role: data.role,

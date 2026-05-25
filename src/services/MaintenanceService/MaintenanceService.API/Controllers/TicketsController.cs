@@ -57,7 +57,58 @@ public class TicketsController : ControllerBase
                 .ThenInclude(te => te.Resources)
             .FirstOrDefaultAsync(t => t.Id == id);
 
-        return ticket == null ? NotFound() : Ok(ticket);
+        if (ticket == null) return NotFound();
+
+        // Projection explícita: evita la referencia circular
+        // TicketEquipment.Ticket → Ticket.TicketEquipments → TicketEquipment.Ticket ...
+        return Ok(new
+        {
+            ticket.Id,
+            ticket.TicketNumber,
+            ticket.Title,
+            ticket.Description,
+            ticket.MaintenanceType,
+            ticket.Status,
+            ticket.Priority,
+            ticket.CreatedByUserId,
+            ticket.CreatedAt,
+            ticket.UpdatedAt,
+            ticket.ClosedAt,
+            TicketEquipments = ticket.TicketEquipments.Select(te => new
+            {
+                te.Id,
+                te.EquipmentId,
+                te.Status,
+                te.Diagnosis,
+                te.Observation,
+                te.LastStatusChangedAt,
+                te.LastStatusChangedByUserId,
+                te.TicketId,
+                TicketTechnicians = te.TicketTechnicians.Select(tt => new
+                {
+                    tt.Id,
+                    tt.TechnicianUserId,
+                    tt.AssignedAt,
+                    tt.TicketEquipmentId
+                }).ToList(),
+                Activities = te.Activities.Select(a => new
+                {
+                    a.Id,
+                    a.Description,
+                    a.PerformedAt,
+                    a.PerformedByUserId,
+                    a.TicketEquipmentId
+                }).ToList(),
+                Resources = te.Resources.Select(r => new
+                {
+                    r.Id,
+                    r.Name,
+                    r.Description,
+                    r.Quantity,
+                    r.TicketEquipmentId
+                }).ToList(),
+            }).ToList()
+        });
     }
 
     [HttpPost]
@@ -82,7 +133,7 @@ public class TicketsController : ControllerBase
             Status = "Pendiente",
             Priority = dto.Priority,
             CreatedByUserId = dto.CreatedByUserId,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.Now,
             TicketEquipments = dto.EquipmentIds.Select(eId => new TicketEquipment
             {
                 Id = Guid.NewGuid(),
@@ -118,7 +169,7 @@ public class TicketsController : ControllerBase
         ticket.Description = dto.Description;
         ticket.MaintenanceType = dto.MaintenanceType;
         ticket.Priority = dto.Priority;
-        ticket.UpdatedAt = DateTime.UtcNow;
+        ticket.UpdatedAt = DateTime.Now;
 
         await _db.SaveChangesAsync();
         return Ok(ticket);

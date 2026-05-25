@@ -51,45 +51,32 @@ export default function Casos() {
   const [editingTicket, setEditingTicket] = useState(null)
   const [lastCreatedCode, setLastCreatedCode] = useState(null)
 
-  const emptyForm = {
-    title: '',
-    description: '',
-    maintenanceType: '',
-    priority: 'Media',
-    equipmentIds: [],
-  }
-  const [form, setForm] = useState(emptyForm)
+  const [form, setForm] = useState({
+    title: '', description: '', maintenanceType: '', priority: 'Media', equipmentIds: [],
+  })
 
   const load = useCallback(async () => {
-  try {
-    setLoading(true)
-    setError('')
-    const [ticketsRes, eqRes, usersRes] = await Promise.allSettled([
-      maintenanceApi.get('/tickets'),
-      equipmentApi.get('/equipments'),
-      userApi.get('/users'),
-    ])
-    if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
-    if (eqRes.status !== 'fulfilled') throw eqRes.reason
-    setTickets(ticketsRes.value.data)
-    setEquipments(eqRes.value.data)
-    if (usersRes.status === 'fulfilled') setUsuarios(usersRes.value.data)
-  } catch (e) {
-    setError(e.response?.data?.message ?? 'Error al cargar los casos.')
-  } finally {
-    setLoading(false)
-  }
- }, [])
+    try {
+      setLoading(true)
+      setError('')
+      const [ticketsRes, eqRes, usersRes] = await Promise.allSettled([
+        maintenanceApi.get('/tickets'),
+        equipmentApi.get('/equipments'),
+        userApi.get('/users'),
+      ])
+      // Solo tickets es crítico; equipos y usuarios fallan silenciosamente
+      if (ticketsRes.status !== 'fulfilled') throw ticketsRes.reason
+      setTickets(ticketsRes.value.data)
+      if (eqRes.status === 'fulfilled') setEquipments(eqRes.value.data)
+      if (usersRes.status === 'fulfilled') setUsuarios(usersRes.value.data)
+    } catch (e) {
+      setError(e.response?.data?.message ?? 'Error al cargar los casos.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => { load() }, [load])
-
-  // Refresca el detalle del caso abierto para tener los estados actualizados
-  const refreshDetail = async (ticketId) => {
-    try {
-      const res = await maintenanceApi.get(`/tickets/${ticketId}`)
-      setShowDetail(res.data)
-    } catch { /* silencioso */ }
-  }
 
   const loadHistory = async (ticketId) => {
     try {
@@ -112,10 +99,13 @@ export default function Casos() {
     return matchSearch && matchStatus && matchType
   })
 
+  // Solo equipos Activos son seleccionables para nuevos casos
+  const availableEquipments = equipments.filter(eq => eq.status === 'Activo')
+
   const openNew = () => {
     setEditingTicket(null)
     setLastCreatedCode(null)
-    setForm(emptyForm)
+    setForm({ title: '', description: '', maintenanceType: '', priority: 'Media', equipmentIds: [] })
     setShowForm(true)
   }
 
@@ -123,22 +113,25 @@ export default function Casos() {
     setShowDetail(null)
     setEditingTicket(ticket)
     setLastCreatedCode(null)
+    const ids = ticket.equipmentIds
+      ?? ticket.ticketEquipments?.map(te => te.equipmentId)
+      ?? []
     setForm({
       title: ticket.title ?? '',
       description: ticket.description ?? '',
       maintenanceType: ticket.maintenanceType ?? '',
       priority: ticket.priority ?? 'Media',
-      equipmentIds: ticket.equipmentIds ?? [],
+      equipmentIds: ids,
     })
     setShowForm(true)
   }
 
   const openDetail = async (ticket) => {
+    setHistory([])
+    setShowHistory(false)
     try {
       const res = await maintenanceApi.get(`/tickets/${ticket.id}`)
       setShowDetail(res.data)
-      setShowHistory(false)
-      setHistory([])
     } catch {
       setShowDetail(ticket)
     }
@@ -178,8 +171,8 @@ export default function Casos() {
 
       setShowForm(false)
       setEditingTicket(null)
-      setForm(emptyForm)
-      load()
+      setForm({ title: '', description: '', maintenanceType: '', priority: 'Media', equipmentIds: [] })
+      await load()
     } catch (e) {
       alert(e.response?.data?.message ?? 'Error al guardar el caso.')
     } finally {
@@ -187,65 +180,79 @@ export default function Casos() {
     }
   }
 
-  // Cambiar estado de un equipo dentro del caso
   const handleEquipmentStatusChange = async (teId, newStatus, ticketId) => {
-  setChangingStatus(true)
-  try {
-    await maintenanceApi.put(`/ticket-equipments/${teId}/status`, {
-      newStatus,
-      comment: '',
-      changedByUserId: user?.id,
-    })
-    setShowDetail(prev => ({
-      ...prev,
-      ticketEquipments: prev.ticketEquipments.map(te =>
-        te.id === teId ? { ...te, status: newStatus } : te
-      )
-    }))
-    await load()
-  } catch (err) {
-    alert(err.response?.data ?? 'Error al cambiar el estado del equipo.')
-  } finally {
-    setChangingStatus(false)
+    setChangingStatus(true)
+    try {
+      await maintenanceApi.put(`/ticket-equipments/${teId}/status`, {
+        newStatus,
+        comment: '',
+        changedByUserId: user?.id,
+      })
+      setShowDetail(prev => ({
+        ...prev,
+        ticketEquipments: prev.ticketEquipments.map(te =>
+          te.id === teId ? { ...te, status: newStatus } : te
+        )
+      }))
+      if (showHistory) await loadHistory(ticketId)
+      await load()
+    } catch (err) {
+      alert(err.response?.data ?? 'Error al cambiar el estado del equipo.')
+    } finally {
+      setChangingStatus(false)
+    }
   }
-}
 
-const handleTicketStatusChange = async (ticketId, newStatus) => {
-  setChangingStatus(true)
-  try {
-    await maintenanceApi.put(`/tickets/${ticketId}/status`, {
-      newStatus,
-      comment: '',
-      changedByUserId: user?.id,
-    })
-    setShowDetail(prev => ({
-      ...prev,
-      status: newStatus,
-      closedAt: newStatus === 'Terminado' ? new Date().toISOString() : prev.closedAt
-    }))
-    await load()
-  } catch (err) {
-    alert(err.response?.data ?? 'Error al cambiar el estado del caso.')
-  } finally {
-    setChangingStatus(false)
+  const handleTicketStatusChange = async (ticketId, newStatus) => {
+    setChangingStatus(true)
+    try {
+      await maintenanceApi.put(`/tickets/${ticketId}/status`, {
+        newStatus,
+        comment: '',
+        changedByUserId: user?.id,
+      })
+      setShowDetail(prev => ({
+        ...prev,
+        status: newStatus,
+        closedAt: newStatus === 'Terminado' ? new Date().toISOString() : prev.closedAt
+      }))
+      if (showHistory) await loadHistory(ticketId)
+      await load()
+    } catch (err) {
+      alert(err.response?.data ?? 'Error al cambiar el estado del caso.')
+    } finally {
+      setChangingStatus(false)
+    }
   }
-}
 
   const getEquipmentLabel = (equipmentId) => {
-    const eq = equipments.find(e => e.id === equipmentId)
-    return eq ? `${eq.assetTag} — ${eq.brand} ${eq.model}` : equipmentId
+    if (!equipmentId) return '(sin equipo)'
+    const eq = equipments.find(e => (e.id ?? e.Id) === equipmentId)
+    if (!eq) return String(equipmentId).slice(0, 8) + '…'
+    const tag   = eq.assetTag ?? eq.AssetTag ?? ''
+    const brand = eq.brand    ?? eq.Brand    ?? ''
+    const model = eq.model    ?? eq.Model    ?? ''
+    return `${tag} — ${brand} ${model}`.trim()
   }
 
   const getUserName = (userId) => {
-  const u = usuarios.find(u => u.id === userId)
-  return u ? u.fullName : 'Usuario desconocido'
+    if (!userId) return 'Desconocido'
+    const u = usuarios.find(u => u.id === userId)
+    if (u) return u.fullName ?? u.email ?? String(userId).slice(0, 8)
+    if (user?.id && userId === user.id) return user.fullName ?? 'Yo'
+    return String(userId).slice(0, 8) + '…'
   }
 
-  const formatDate = (dateStr) =>
-    new Date(dateStr).toLocaleString('es-EC', {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-'
+    const raw = String(dateStr)
+    const normalized = (raw.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(raw)) ? raw : raw + 'Z'
+    return new Date(normalized).toLocaleString('es-EC', {
+      timeZone: 'America/Guayaquil',
       day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit',
     })
+  }
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -320,7 +327,7 @@ const handleTicketStatusChange = async (ticketId, newStatus) => {
                   <td style={td}><Badge colors={TYPE_COLORS[ticket.maintenanceType]}>{ticket.maintenanceType}</Badge></td>
                   <td style={tdCenter}><Badge colors={PRIORITY_COLORS[ticket.priority]}>{ticket.priority}</Badge></td>
                   <td style={tdCenter}><Badge colors={STATUS_COLORS[ticket.status]}>{ticket.status}</Badge></td>
-                  <td style={td}>{new Date(ticket.createdAt).toLocaleDateString('es-EC')}</td>
+                  <td style={td}>{formatDate(ticket.createdAt)}</td>
                   <td style={tdCenter}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
                       <button onClick={() => openDetail(ticket)} title="Ver detalle" style={iconBtn}>
@@ -416,10 +423,12 @@ const handleTicketStatusChange = async (ticketId, newStatus) => {
                 )}
               </label>
               <div style={{ border: '1px solid #ddd', borderRadius: 6, maxHeight: 200, overflowY: 'auto', padding: '0.25rem 0' }}>
-                {equipments.length === 0 && (
-                  <p style={{ padding: '0.5rem 1rem', color: '#888', margin: 0 }}>Cargando equipos...</p>
+                {availableEquipments.length === 0 && (
+                  <p style={{ padding: '0.5rem 1rem', color: '#888', margin: 0 }}>
+                    {equipments.length === 0 ? 'Cargando equipos...' : 'No hay equipos disponibles (todos están en mantenimiento).'}
+                  </p>
                 )}
-                {equipments.map(eq => (
+                {availableEquipments.map(eq => (
                   <label key={eq.id} style={{
                     display: 'flex', alignItems: 'center', gap: '0.6rem',
                     padding: '0.4rem 0.75rem', cursor: 'pointer',
@@ -618,7 +627,7 @@ const handleTicketStatusChange = async (ticketId, newStatus) => {
                             {' → '}
                             <Badge colors={STATUS_COLORS[h.newStatus]}>{h.newStatus}</Badge>
                             <span style={{ color: '#6b7280', marginLeft: 6 }}>
-                            por <strong>{getUserName(h.changedByUserId)}</strong>
+                              por <strong>{getUserName(h.changedByUserId)}</strong>
                             </span>
                             {h.comment && <span style={{ color: '#6b7280' }}> · {h.comment}</span>}
                           </div>
