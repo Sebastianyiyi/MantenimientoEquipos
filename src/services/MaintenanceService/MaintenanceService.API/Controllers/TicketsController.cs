@@ -149,9 +149,14 @@ public class TicketsController : ControllerBase
         await _db.SaveChangesAsync();
 
         // Cambiar estado de equipos a "En mantenimiento"
+        // Se reenvía el token JWT del request entrante para que el EquipmentService lo acepte
         try
         {
             var client = _httpClientFactory.CreateClient();
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader))
+                client.DefaultRequestHeaders.Add("Authorization", authHeader);
+
             foreach (var equipmentId in dto.EquipmentIds)
             {
                 await client.PatchAsJsonAsync(
