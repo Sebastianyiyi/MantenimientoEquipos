@@ -12,6 +12,7 @@ import Catalogos from './pages/catalogos/Catalogos'
 import Importar from './pages/importar/Importar'
 import Usuarios from './pages/usuarios/Usuarios'
 import Casos from './pages/casos/Casos'
+import HojaDeVida from './pages/hojadevida/HojaDeVida'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="/equipos" element={<Equipos />} />
             <Route path="/equipos/importar" element={<Importar />} />
             <Route path="/casos" element={<Casos />} />
+            <Route path="/equipos/:id/hoja-de-vida" element={<HojaDeVida />} />
             <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>

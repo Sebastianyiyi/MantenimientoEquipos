@@ -14,6 +14,12 @@ public class MaintenanceDbContext : DbContext
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
 
+    // HU-10: catálogos de actividades y diagnósticos
+    public DbSet<CatalogActivity> CatalogActivities => Set<CatalogActivity>();
+    public DbSet<CatalogDiagnosis> CatalogDiagnoses => Set<CatalogDiagnosis>();
+    public DbSet<TicketEquipmentActivity> TicketEquipmentActivities => Set<TicketEquipmentActivity>();
+    public DbSet<TicketEquipmentDiagnosis> TicketEquipmentDiagnoses => Set<TicketEquipmentDiagnosis>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Ticket
@@ -41,7 +47,6 @@ public class MaintenanceDbContext : DbContext
                   .HasForeignKey(e => e.TicketId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Un equipo no puede estar duplicado en el mismo ticket
             entity.HasIndex(e => new { e.TicketId, e.EquipmentId }).IsUnique();
         });
 
@@ -67,11 +72,10 @@ public class MaintenanceDbContext : DbContext
                   .HasForeignKey(e => e.TicketEquipmentId)
                   .OnDelete(DeleteBehavior.Cascade);
 
-            // Un técnico no puede estar asignado dos veces al mismo equipo del ticket
             entity.HasIndex(e => new { e.TicketEquipmentId, e.TechnicianUserId }).IsUnique();
         });
 
-        // Activity
+        // Activity (libre, legado)
         modelBuilder.Entity<Activity>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -94,6 +98,62 @@ public class MaintenanceDbContext : DbContext
                   .WithMany(te => te.Resources)
                   .HasForeignKey(e => e.TicketEquipmentId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── HU-10: Catálogo de Actividades ──────────────────────────────────────
+        modelBuilder.Entity<CatalogActivity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Description).HasMaxLength(1024);
+            entity.Property(e => e.Category).IsRequired().HasMaxLength(64);
+        });
+
+        // ── HU-10: Catálogo de Diagnósticos ─────────────────────────────────────
+        modelBuilder.Entity<CatalogDiagnosis>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.Description).HasMaxLength(1024);
+            entity.Property(e => e.Severity).IsRequired().HasMaxLength(32);
+        });
+
+        // ── HU-10: TicketEquipmentActivity (N:M) ────────────────────────────────
+        modelBuilder.Entity<TicketEquipmentActivity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.TicketEquipment)
+                  .WithMany(te => te.TicketEquipmentActivities)
+                  .HasForeignKey(e => e.TicketEquipmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.CatalogActivity)
+                  .WithMany(ca => ca.TicketEquipmentActivities)
+                  .HasForeignKey(e => e.CatalogActivityId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Una actividad no se puede vincular dos veces al mismo equipo del ticket
+            entity.HasIndex(e => new { e.TicketEquipmentId, e.CatalogActivityId }).IsUnique();
+        });
+
+        // ── HU-10: TicketEquipmentDiagnosis (N:M) ───────────────────────────────
+        modelBuilder.Entity<TicketEquipmentDiagnosis>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.TicketEquipment)
+                  .WithMany(te => te.TicketEquipmentDiagnoses)
+                  .HasForeignKey(e => e.TicketEquipmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.CatalogDiagnosis)
+                  .WithMany(cd => cd.TicketEquipmentDiagnoses)
+                  .HasForeignKey(e => e.CatalogDiagnosisId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Un diagnóstico no se puede vincular dos veces al mismo equipo del ticket
+            entity.HasIndex(e => new { e.TicketEquipmentId, e.CatalogDiagnosisId }).IsUnique();
         });
     }
 }

@@ -1,0 +1,444 @@
+/* ─── HojaDeVida.css ──────────────────────────────────────────────────────── */
+
+.hdv-page {
+  padding: var(--space-6) var(--space-8);
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* ── Encabezado ── */
+.hdv-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.hdv-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hdv-back-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  transition: opacity var(--transition);
+}
+.hdv-back-btn:hover { opacity: 0.75; }
+
+.hdv-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.hdv-subtitle {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.hdv-export-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Ficha equipo ── */
+.hdv-equipment-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.hdv-code-badge {
+  display: inline-block;
+  background: var(--color-primary-highlight);
+  color: var(--color-primary-active);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.hdv-equipment-info { flex: 1; }
+
+.hdv-equipment-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 2px 0;
+}
+
+.hdv-equipment-type {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.hdv-equipment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-size: 0.83rem;
+  color: var(--color-text-muted);
+}
+
+.hdv-equipment-meta strong {
+  color: var(--color-text);
+}
+
+/* ── Stats ── */
+.hdv-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.hdv-stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+
+.hdv-stat-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.hdv-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1;
+  margin: 0;
+}
+
+.hdv-stat-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 2px 0 0;
+}
+
+/* ── Sección timeline ── */
+.hdv-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.hdv-section-sub {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.hdv-timeline-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.hdv-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Caso card ── */
+.hdv-caso-card {
+  display: flex;
+  gap: var(--space-4);
+  padding-bottom: var(--space-5);
+}
+
+.hdv-caso-card:last-child .hdv-timeline-line {
+  display: none;
+}
+
+/* Dot + línea vertical */
+.hdv-timeline-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 14px;
+}
+
+.hdv-timeline-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 2px currentColor;
+  flex-shrink: 0;
+}
+
+.hdv-timeline-line {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  background: var(--color-border);
+  margin-top: 4px;
+}
+
+/* Cuerpo de la tarjeta */
+.hdv-caso-body {
+  flex: 1;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.hdv-caso-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+.hdv-caso-header:hover { background: var(--color-bg); }
+
+.hdv-caso-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.hdv-caso-number {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: monospace;
+}
+
+.hdv-caso-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.hdv-expand-icon {
+  font-size: 0.65rem;
+  color: var(--color-text-faint);
+}
+
+.hdv-caso-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  padding: 0 var(--space-4) var(--space-2);
+  margin: 0;
+}
+
+.hdv-caso-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Detalle expandible ── */
+.hdv-caso-detail {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-surface);
+}
+
+.hdv-detail-section h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 var(--space-2) 0;
+}
+
+/* Técnicos */
+.hdv-technicians {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hdv-technician-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.hdv-technician-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary-highlight);
+  color: var(--color-primary-active);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hdv-technician-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 2px;
+}
+
+.hdv-technician-desc,
+.hdv-technician-obs {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Listas actividades/diagnósticos */
+.hdv-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hdv-item-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+}
+
+.hdv-item-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.hdv-item-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Tabla recursos */
+.hdv-resources-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.hdv-resources-table th,
+.hdv-resources-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hdv-resources-table th {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hdv-resources-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Estados vacíos / carga / error ── */
+.hdv-empty {
+  text-align: center;
+  padding: var(--space-10) var(--space-6);
+  color: var(--color-text-muted);
+}
+
+.hdv-empty-icon {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: var(--space-3);
+}
+
+.hdv-empty-detail {
+  font-size: 0.82rem;
+  color: var(--color-text-faint);
+  font-style: italic;
+  margin: 0;
+}
+
+.hdv-loading,
+.hdv-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 300px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.hdv-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: hdv-spin 0.75s linear infinite;
+}
+
+@keyframes hdv-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Print ── */
+@media print {
+  .hdv-back-btn,
+  .hdv-export-btn { display: none; }
+
+  .hdv-caso-body { border: 1px solid #ccc; }
+  .hdv-caso-detail { display: flex !important; }
+}
