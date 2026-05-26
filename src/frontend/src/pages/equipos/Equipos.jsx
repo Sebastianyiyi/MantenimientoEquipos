@@ -4,6 +4,24 @@ import { useNavigate } from 'react-router-dom'
 
 const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
 
+// Modal de alerta personalizado (reemplaza alert() nativo)
+function AlertModal({ message, onClose }) {
+  if (!message) return null
+  return (
+    <div style={overlay}>
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>⚠️</span>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#111827', lineHeight: 1.5 }}>{message}</p>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button className="btn-primary" onClick={onClose}>Aceptar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Equipos() {
   const [equipments, setEquipments] = useState([])
   const [types, setTypes] = useState([])
@@ -11,12 +29,14 @@ export default function Equipos() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterLaboratory, setFilterLaboratory] = useState('')
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [showDetail, setShowDetail] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editingEquipment, setEditingEquipment] = useState(null)
   const [laboratories, setLaboratories] = useState([])
+  const [alertMessage, setAlertMessage] = useState('')
   const navigate = useNavigate()
 
   const emptyForm = {
@@ -33,32 +53,15 @@ export default function Equipos() {
 
   const [form, setForm] = useState(emptyForm)
 
-  const getLifecycleStatus = (purchaseDate) => {
-    if (!purchaseDate) {
-      return {
-        text: 'Sin fecha registrada',
-        color: '#6b7280',
-        bg: '#f3f4f6'
-      }
-    }
+  const showAlert = (msg) => setAlertMessage(msg)
 
+  const getLifecycleStatus = (purchaseDate) => {
+    if (!purchaseDate) return { text: 'Sin fecha registrada', color: '#6b7280', bg: '#f3f4f6' }
     const purchase = new Date(purchaseDate)
     const today = new Date()
     const diffYears = (today - purchase) / (1000 * 60 * 60 * 24 * 365.25)
-
-    if (diffYears < 3) {
-      return {
-        text: 'Vigente',
-        color: '#166534',
-        bg: '#dcfce7'
-      }
-    }
-
-    return {
-      text: 'Fuera de ciclo / requiere revisión',
-      color: '#991b1b',
-      bg: '#fee2e2'
-    }
+    if (diffYears < 3) return { text: 'Vigente', color: '#166534', bg: '#dcfce7' }
+    return { text: 'Fuera de ciclo / requiere revisión', color: '#991b1b', bg: '#fee2e2' }
   }
 
   const parseSpecs = (value) => {
@@ -169,7 +172,7 @@ export default function Equipos() {
 
   const handleSaveUnitario = async () => {
     if (!form.assetTag || !form.brand || !form.model || !form.serialNumber || !form.equipmentTypeId || !form.purchaseDate) {
-      return alert('Complete los campos obligatorios.')
+      return showAlert('Complete los campos obligatorios.')
     }
 
     setSaving(true)
@@ -206,31 +209,60 @@ export default function Equipos() {
         savedEquipmentId = createRes.data.id
       }
 
-      if (form.laboratoryId) {
+      // Solo llamar a assign si el laboratorio realmente cambió
+      const previousLabId = editingEquipment?.laboratory?.id ?? ''
+      const newLabId = form.laboratoryId ?? ''
+
+      if (newLabId && newLabId !== previousLabId) {
+        // Laboratorio nuevo o cambiado → asignar
         await locationApi.post('/equipment-locations/assign', {
           equipmentId: savedEquipmentId,
-          laboratoryId: form.laboratoryId,
+          laboratoryId: newLabId,
           notes: 'Asignado desde gestión de equipos'
         })
-      } else if (editingEquipment?.laboratory?.id) {
+      } else if (!newLabId && previousLabId) {
+        // Se quitó el laboratorio → remover
         await locationApi.patch(`/equipment-locations/remove/${savedEquipmentId}`, {
           notes: 'Removido desde gestión de equipos'
         })
       }
+      // Si newLabId === previousLabId → no hacer nada (evita el error "ya está asignado")
 
       setShowForm(false)
       setEditingEquipment(null)
       setForm(emptyForm)
       load()
     } catch (e) {
-      alert(e.response?.data?.message ?? 'Error al guardar.')
+      showAlert(e.response?.data?.message ?? 'Error al guardar.')
     } finally {
       setSaving(false)
     }
   }
 
+  // Filtrado por laboratorio en el cliente
+  const displayedEquipments = filterLaboratory
+    ? equipments.filter(eq => eq.laboratory?.id === filterLaboratory)
+    : equipments
+
+  // Calcular cupos disponibles por laboratorio según tipo seleccionado
+  const getLaboratoryLabel = (lab) => {
+    const base = `${lab.name} - ${lab.building ?? 'Sin edificio'} - ${lab.floor ?? 'Sin piso'}`
+    if (!form.equipmentTypeId) return base
+
+    const capacity = lab.capacities?.find(c => c.equipmentTypeId === form.equipmentTypeId)
+    if (!capacity) return base
+
+    const assigned = equipments.filter(
+      eq => eq.laboratory?.id === lab.id && eq.equipmentType?.id === form.equipmentTypeId
+    ).length
+    const available = capacity.maxCapacity - assigned
+    return `${base} (Cupos: ${available})`
+  }
+
   return (
     <div style={{ padding: '2rem' }}>
+      <AlertModal message={alertMessage} onClose={() => setAlertMessage('')} />
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1 style={{ margin: 0 }}>Gestión de Equipos</h1>
@@ -251,8 +283,9 @@ export default function Equipos() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+      {/* Barra de búsqueda */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <form onSubmit={handleSearch} style={{ display: 'flex', gap: '0.5rem', flex: 1, minWidth: 260 }}>
           <input
             placeholder="Buscar por código, asset tag, marca, modelo, serie o laboratorista..."
             value={search}
@@ -265,10 +298,23 @@ export default function Equipos() {
         <select
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
-          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd' }}
+          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', minWidth: 160 }}
         >
           <option value="">Todos los estados</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select
+          value={filterLaboratory}
+          onChange={e => setFilterLaboratory(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', minWidth: 200 }}
+        >
+          <option value="">Todos los laboratorios</option>
+          {laboratories.map(l => (
+            <option key={l.id} value={l.id}>
+              {l.name}{l.building ? ` - ${l.building}` : ''}{l.floor ? ` - ${l.floor}` : ''}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -291,7 +337,7 @@ export default function Equipos() {
             </thead>
 
             <tbody>
-              {equipments.map(eq => (
+              {displayedEquipments.map(eq => (
                 <tr key={eq.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={td}>{eq.code}</td>
                   <td style={td}>{eq.assetTag}</td>
@@ -325,41 +371,15 @@ export default function Equipos() {
 
                   <td style={tdCenter}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
-                      <button
-                        onClick={() => setShowDetail(eq)}
-                        title="Ver ficha"
-                        style={iconButton}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
+                      <button onClick={() => setShowDetail(eq)} title="Ver ficha" style={iconButton}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
                           <circle cx="12" cy="12" r="3" />
                         </svg>
                       </button>
 
-                      <button
-                        onClick={() => navigate(`/equipos/${eq.id}/hoja-de-vida`)}
-                        title="Hoja de vida"
-                        style={iconButton}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
+                      <button onClick={() => navigate(`/equipos/${eq.id}/hoja-de-vida`)} title="Hoja de vida" style={iconButton}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                           <polyline points="14 2 14 8 20 8" />
                           <line x1="16" y1="13" x2="8" y2="13" />
@@ -368,21 +388,8 @@ export default function Equipos() {
                         </svg>
                       </button>
 
-                      <button
-                        onClick={() => openEdit(eq)}
-                        title="Editar equipo"
-                        style={iconButton}
-                      >
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
+                      <button onClick={() => openEdit(eq)} title="Editar equipo" style={iconButton}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
                         </svg>
@@ -392,7 +399,7 @@ export default function Equipos() {
                 </tr>
               ))}
 
-              {equipments.length === 0 && (
+              {displayedEquipments.length === 0 && (
                 <tr>
                   <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
                     No hay equipos registrados.
@@ -411,10 +418,7 @@ export default function Equipos() {
               <h3 style={{ margin: 0 }}>
                 {editingEquipment ? 'Editar Equipo' : 'Registrar Equipo'}
               </h3>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
-              >
+              <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
                 ✕
               </button>
             </div>
@@ -437,11 +441,7 @@ export default function Equipos() {
               <label style={labelStyle}>Tipo de Equipo *</label>
               <select
                 value={form.equipmentTypeId}
-                onChange={e => setForm({
-                  ...form,
-                  equipmentTypeId: e.target.value,
-                  laboratoryId: ''
-                })}
+                onChange={e => setForm({ ...form, equipmentTypeId: e.target.value, laboratoryId: '' })}
                 style={inputStyle}
                 disabled={!!editingEquipment}
               >
@@ -461,9 +461,7 @@ export default function Equipos() {
               >
                 <option value="">Sin asignar</option>
                 {laboratoristas.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} - {u.email}
-                  </option>
+                  <option key={u.id} value={u.id}>{u.fullName} - {u.email}</option>
                 ))}
               </select>
             </div>
@@ -479,10 +477,15 @@ export default function Equipos() {
                 <option value="">Sin asignar</option>
                 {laboratories.map(l => (
                   <option key={l.id} value={l.id}>
-                    {l.name} - {l.building ?? 'Sin edificio'} - {l.floor ?? 'Sin piso'}
+                    {getLaboratoryLabel(l)}
                   </option>
                 ))}
               </select>
+              {!form.equipmentTypeId && (
+                <span style={{ fontSize: '0.75rem', color: '#888', marginTop: '0.25rem', display: 'block' }}>
+                  Seleccione un tipo de equipo primero para ver los cupos disponibles.
+                </span>
+              )}
             </div>
 
             <hr style={{ margin: '1rem 0', borderColor: '#f0f0f0' }} />
@@ -535,52 +538,18 @@ export default function Equipos() {
           <div style={{ ...modal, maxWidth: 700 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0 }}>Ficha Técnica</h3>
-
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  className="btn-secondary"
-                  onClick={() => window.print()}
-                >
-                  Imprimir
-                </button>
-
-                <button
-                  className="btn-primary"
-                  onClick={() => navigate(`/equipos/${showDetail.id}/hoja-de-vida`)}
-                  title="Ver hoja de vida del equipo"
-                >
+                <button className="btn-secondary" onClick={() => window.print()}>Imprimir</button>
+                <button className="btn-primary" onClick={() => navigate(`/equipos/${showDetail.id}/hoja-de-vida`)} title="Ver hoja de vida del equipo">
                   📋 Hoja de Vida
                 </button>
-
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    const current = showDetail
-                    setShowDetail(null)
-                    openEdit(current)
-                  }}
-                >
+                <button className="btn-secondary" onClick={() => { const current = showDetail; setShowDetail(null); openEdit(current) }}>
                   Editar
                 </button>
-
                 <button
                   onClick={() => setShowDetail(null)}
                   title="Cerrar"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
-                    background: '#fff',
-                    cursor: 'pointer',
-                    color: '#374151',
-                    fontSize: '1rem',
-                    lineHeight: 1,
-                    transition: 'background 0.15s'
-                  }}
+                  style={{ width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#374151', fontSize: '1rem', lineHeight: 1, transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                   onMouseLeave={e => e.currentTarget.style.background = '#fff'}
                 >
@@ -591,7 +560,6 @@ export default function Equipos() {
 
             {(() => {
               const lifecycle = getLifecycleStatus(showDetail.purchaseDate)
-
               return (
                 <>
                   <div style={grid2}>
@@ -606,22 +574,9 @@ export default function Equipos() {
                     <Info label="Origen" value={showDetail.importSource} />
                     <Info label="Laboratorista" value={showDetail.laboratoristaNombre ?? 'Sin asignar'} />
                     <Info label="Laboratorio" value={showDetail.laboratory?.name ?? 'Sin asignar'} />
-
                     <div style={{ marginBottom: '0.25rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: '#888', display: 'block' }}>
-                        Vigencia de mantenimiento
-                      </span>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          padding: '0.3rem 0.7rem',
-                          borderRadius: '999px',
-                          background: lifecycle.bg,
-                          color: lifecycle.color,
-                          fontWeight: 600,
-                          fontSize: '0.85rem'
-                        }}
-                      >
+                      <span style={{ fontSize: '0.75rem', color: '#888', display: 'block' }}>Vigencia de mantenimiento</span>
+                      <span style={{ display: 'inline-block', padding: '0.3rem 0.7rem', borderRadius: '999px', background: lifecycle.bg, color: lifecycle.color, fontWeight: 600, fontSize: '0.85rem' }}>
                         {lifecycle.text}
                       </span>
                     </div>
@@ -631,19 +586,9 @@ export default function Equipos() {
                     <>
                       <hr style={{ margin: '1rem 0', borderColor: '#f0f0f0' }} />
                       <p style={{ fontWeight: 600, margin: '0 0 0.75rem' }}>Especificaciones</p>
-
                       <div style={{ display: 'grid', gap: '0.5rem' }}>
                         {parseSpecs(showDetail.specificationsJson).map((a, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: '160px 1fr',
-                              gap: '1rem',
-                              padding: '0.5rem 0',
-                              borderBottom: '1px solid #f5f5f5'
-                            }}
-                          >
+                          <div key={i} style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '1rem', padding: '0.5rem 0', borderBottom: '1px solid #f5f5f5' }}>
                             <span style={{ fontWeight: 600 }}>{a.key}</span>
                             <span>{a.value}</span>
                           </div>
