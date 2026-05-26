@@ -8,7 +8,7 @@ const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
 function AlertModal({ message, onClose }) {
   if (!message) return null
   return (
-    <div style={overlay}>
+    <div style={{ ...overlay, zIndex: 2000 }}>
       <div style={{ background: '#fff', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: 420, boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '1.25rem' }}>
           <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>⚠️</span>
@@ -125,6 +125,15 @@ export default function Equipos() {
       const labsData = labsRes.value.data
       const currentLocationsData = currentLocationsRes.value.data
 
+      // Cargar capacidades de cada laboratorio en paralelo
+      const capacityResults = await Promise.allSettled(
+        labsData.map(lab => locationApi.get(`/laboratorios/${lab.id}/capacidades`))
+      )
+      const labsWithCapacities = labsData.map((lab, i) => ({
+        ...lab,
+        capacities: capacityResults[i].status === 'fulfilled' ? capacityResults[i].value.data : []
+      }))
+
       const locationMap = new Map(
         currentLocationsData.map(item => [item.equipmentId, item.laboratory])
       )
@@ -139,7 +148,7 @@ export default function Equipos() {
       setLaboratoristas(
         usersData.filter(u => u.role === 'Laboratorista' && u.isActive)
       )
-      setLaboratories(labsData)
+      setLaboratories(labsWithCapacities)
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar datos.')
     } finally {
