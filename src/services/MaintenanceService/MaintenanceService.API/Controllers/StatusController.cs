@@ -25,7 +25,13 @@ public class StatusController : ControllerBase
         };
     }
 
-    public StatusController(MaintenanceDbContext db) => _db = db;
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public StatusController(MaintenanceDbContext db, IHttpClientFactory httpClientFactory)
+    {
+        _db = db;
+        _httpClientFactory = httpClientFactory;
+    }
 
     // PUT /api/tickets/{id}/status  → estado general del caso
     [HttpPut("tickets/{id:guid}/status")]
@@ -56,7 +62,27 @@ public class StatusController : ControllerBase
         ticket.UpdatedAt = DateTime.Now;
 
         if (dto.NewStatus == "Terminado")
+        {
             ticket.ClosedAt = DateTime.Now;
+
+            // Volver equipos a "Activo"
+            try
+            {
+                var teList = await _db.TicketEquipments
+                    .Where(te => te.TicketId == ticket.Id)
+                    .ToListAsync();
+
+                var client = _httpClientFactory.CreateClient();
+                foreach (var te in teList)
+                {
+                    await client.PatchAsJsonAsync(
+                        $"http://localhost:5002/api/equipments/{te.EquipmentId}/status",
+                        new { status = "Activo" }
+                    );
+                }
+            }
+            catch { /* silencioso */ }
+        }
 
         _db.StatusHistories.Add(history);
         await _db.SaveChangesAsync();

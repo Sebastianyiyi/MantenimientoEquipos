@@ -24,7 +24,7 @@ export default function TicketResources({ ticketEquipmentId, ticketStatus }) {
   const [editForm, setEditForm] = useState({ name: '', description: '', quantity: 1 })
   const [editError, setEditError] = useState(null)
 
-  const isClosed = ticketStatus === 'Cerrado'
+  const isClosed = ticketStatus === 'Terminado'
 
   // ── Cargar recursos ────────────────────────────────────────────────────────
   const fetchResources = async () => {

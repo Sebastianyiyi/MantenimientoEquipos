@@ -263,12 +263,21 @@ public class EquipmentsController : ControllerBase
     }
 
     [HttpPatch("{id:guid}/status")]
-    public IActionResult UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
+    public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateStatusDto dto)
     {
-        return BadRequest(new
-        {
-            message = "El estado no puede modificarse manualmente. Este cambio se realizará desde el módulo de mantenimiento."
-        });
+        var equipment = await _context.Equipments.FindAsync(id);
+        if (equipment == null || !equipment.IsActive)
+            return NotFound(new { message = "Equipo no encontrado." });
+
+        var validStatuses = new[] { "Activo", "En mantenimiento", "Dado de baja", "En Pausa" };
+        if (!validStatuses.Contains(dto.Status))
+            return BadRequest(new { message = "Estado inválido." });
+
+        equipment.Status = dto.Status;
+        equipment.UpdatedAt = DateTime.Now;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Estado actualizado correctamente.", equipment.Status });
     }
 
     [HttpDelete("{id:guid}")]
