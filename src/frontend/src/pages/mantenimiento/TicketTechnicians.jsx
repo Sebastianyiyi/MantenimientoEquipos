@@ -26,7 +26,7 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ activityDescription: '', observations: '' })
 
-  const isClosed = ticketStatus === 'Cerrado'
+ const isClosed = ticketStatus === 'Terminado'
 
   // ── Cargar técnicos asignados ──────────────────────────────────────────────
   const fetchTechnicians = async () => {

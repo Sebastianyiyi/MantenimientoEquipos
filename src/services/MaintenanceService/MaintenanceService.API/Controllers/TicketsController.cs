@@ -13,11 +13,14 @@ public class TicketsController : ControllerBase
 {
     private readonly MaintenanceDbContext _db;
     private readonly TicketCodeService _codeService;
+    private readonly IHttpClientFactory _httpClientFactory;
 
-    public TicketsController(MaintenanceDbContext db, TicketCodeService codeService)
+
+    public TicketsController(MaintenanceDbContext db, TicketCodeService codeService, IHttpClientFactory httpClientFactory)
     {
         _db = db;
         _codeService = codeService;
+        _httpClientFactory = httpClientFactory;
     }
 
     [HttpGet]
@@ -144,6 +147,25 @@ public class TicketsController : ControllerBase
 
         _db.Tickets.Add(ticket);
         await _db.SaveChangesAsync();
+
+        // Cambiar estado de equipos a "En mantenimiento"
+        // Se reenvía el token JWT del request entrante para que el EquipmentService lo acepte
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader))
+                client.DefaultRequestHeaders.Add("Authorization", authHeader);
+
+            foreach (var equipmentId in dto.EquipmentIds)
+            {
+                await client.PatchAsJsonAsync(
+                    $"http://localhost:5002/api/equipments/{equipmentId}/status",
+                    new { status = "En mantenimiento" }
+                );
+            }
+        }
+        catch { /* silencioso */ }
 
         return CreatedAtAction(nameof(GetById), new { id = ticket.Id }, new
         {

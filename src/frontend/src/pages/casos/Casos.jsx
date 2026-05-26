@@ -126,18 +126,17 @@ export default function Casos() {
     eq.status === 'Activo' && !occupiedEquipmentIds.has(eq.id)
   )
 
-  const openNew = async () => {
+  const openNew = () => {
     setEditingTicket(null)
     setLastCreatedCode(null)
     setForm({ title: '', description: '', maintenanceType: '', priority: 'Media', equipmentIds: [] })
-
-    try {
-      const res = await maintenanceApi.get('/tickets/next-code')
-      setPreviewCode(res.data.ticketNumber)
-    } catch {
-      setPreviewCode('')
-    }
-
+    // Misma lógica que el backend: CASE-{año}-{total_del_año + 1}
+    const year = new Date().getFullYear()
+    const countThisYear = tickets.filter(t => {
+      const raw = String(t.createdAt ?? '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
+      return new Date(raw).getFullYear() === year
+    }).length
+    setPreviewCode(`CASE-${year}-${String(countThisYear + 1).padStart(4, '0')}`)
     setShowForm(true)
   }
 
@@ -199,6 +198,12 @@ export default function Casos() {
       } else {
         const res = await maintenanceApi.post('/tickets', payload)
         setLastCreatedCode(res.data.ticketNumber)
+        // Cambiar estado de cada equipo a "En mantenimiento" desde el frontend
+        await Promise.allSettled(
+          form.equipmentIds.map(eqId =>
+            equipmentApi.patch(`/equipments/${eqId}/status`, { status: 'En mantenimiento' })
+          )
+        )
       }
 
       setShowForm(false)
@@ -276,12 +281,19 @@ export default function Casos() {
     return found ? found.fullName : `Usuario (${userId.substring(0, 8)}...)`
   }
 
+  // El backend guarda con DateTime.Now (hora local del servidor, Ecuador).
+  // La fecha llega SIN indicador de zona, ej: "2026-05-25T22:33:00".
+  // Si le agregamos 'Z', JS lo interpreta como UTC y lo convierte a Ecuador (UTC-5),
+  // dando 5 horas menos. La solución: quitar cualquier sufijo de zona para que
+  // JS lo interprete como hora local del navegador (que también está en Ecuador).
   const formatDate = (dateStr) => {
     if (!dateStr) return '-'
-    const raw = String(dateStr)
-    const normalized = (raw.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(raw)) ? raw : raw + 'Z'
-    return new Date(normalized).toLocaleString('es-EC', {
-      timeZone: 'America/Guayaquil',
+    const stripped = String(dateStr)
+      .replace(/Z$/i, '')
+      .replace(/[+-]\d{2}:\d{2}$/, '')
+    const d = new Date(stripped)
+    if (isNaN(d)) return '-'
+    return d.toLocaleString('es-EC', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     })

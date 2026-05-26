@@ -8,6 +8,7 @@ builder.Services.AddDbContext<MaintenanceDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<TicketCodeService>();
+builder.Services.AddHttpClient();
 
 builder.Services.AddCors(options =>
 {
