@@ -13,6 +13,7 @@ import Importar from './pages/importar/Importar'
 import Usuarios from './pages/usuarios/Usuarios'
 import Casos from './pages/casos/Casos'
 import HojaDeVida from './pages/hojadevida/HojaDeVida'
+import Reportes from './pages/reportes/Reportes'
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             <Route path="/equipos/importar" element={<Importar />} />
             <Route path="/casos" element={<Casos />} />
             <Route path="/equipos/:id/hoja-de-vida" element={<HojaDeVida />} />
+            <Route path="/reportes" element={<Reportes />} />
             <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>
