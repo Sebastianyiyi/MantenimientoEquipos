@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
+import { useNavigate } from 'react-router-dom'
 import TicketTechnicians from '../mantenimiento/TicketTechnicians'
 import TicketResources from '../mantenimiento/TicketResources'
 import TicketActivitiesDiagnoses from '../mantenimiento/TicketActivitiesDiagnoses'
@@ -34,6 +35,7 @@ const nextStatus = {
 
 export default function Casos() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [tickets, setTickets]       = useState([])
   const [equipments, setEquipments] = useState([])
@@ -308,7 +310,7 @@ export default function Casos() {
           <h1 style={{ margin: 0 }}>Casos de Mantenimiento</h1>
           <p style={{ margin: 0, color: '#888' }}>Registro y seguimiento de órdenes de trabajo</p>
         </div>
-        <button className="btn-primary" onClick={openNew}>+ Nuevo Caso</button>
+        <button className="btn-primary" onClick={() => navigate('/casos/nuevo')}>+ Nuevo Caso</button>
       </div>
 
       {error && (
@@ -381,7 +383,7 @@ export default function Casos() {
                         </svg>
                       </button>
                       {ticket.status !== 'Terminado' && (
-                        <button onClick={() => openEdit(ticket)} title="Editar" style={iconBtn}>
+                        <button onClick={() => navigate(`/casos/${ticket.id}/editar`)} title="Editar" style={iconBtn}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                           </svg>
@@ -518,7 +520,7 @@ export default function Casos() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 {showDetail.status !== 'Terminado' && (
-                  <button className="btn-secondary" onClick={() => { const t = showDetail; setShowDetail(null); openEdit(t) }}>
+                  <button className="btn-secondary" onClick={() => { setShowDetail(null); navigate(`/casos/${showDetail.id}/editar`) }}>
                     Editar
                   </button>
                 )}
