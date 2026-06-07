@@ -7,6 +7,7 @@ const navItems = [
   { to: '/dashboard', icon: 'layout-dashboard', label: 'Dashboard', roles: null },
   { to: '/equipos', icon: 'monitor', label: 'Gestión de Equipos', roles: null },
   { to: '/casos', icon: 'clipboard-list', label: 'Casos de Mantenimiento', roles: null },
+  { to: '/reemplazo', icon: 'refresh-cw', label: 'Reemplazo de Equipos', roles: null },
   { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: ['Administrador'] },
   { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
 ]
