@@ -25,6 +25,9 @@ export default function NuevoCaso() {
   const [success, setSuccess] = useState('')
   const [previewCode, setPreviewCode] = useState('')
   const [equipSearch, setEquipSearch] = useState('')
+  const [filterPC, setFilterPC]             = useState('')
+  const [filterLab, setFilterLab]           = useState('')
+  const [filterType, setFilterType]         = useState('')
 
   const [form, setForm] = useState({
     title: '',
@@ -67,15 +70,19 @@ export default function NuevoCaso() {
       .filter(t => t.status !== 'Terminado')
       .flatMap(t => t.equipmentIds ?? [])
   )
-  const available = equipments.filter(eq =>
-    eq.status === 'Activo' && !occupiedIds.has(eq.id) && (
-      !equipSearch ||
+  const available = equipments.filter(eq => {
+    if (eq.status !== 'Activo' || occupiedIds.has(eq.id)) return false
+    if (filterPC   && !eq.code?.toLowerCase().includes(filterPC.toLowerCase()))   return false
+    if (filterLab  && String(eq.laboratory?.id ?? '') !== filterLab)              return false
+    if (filterType && String(eq.equipmentType?.id ?? '') !== filterType)          return false
+    if (equipSearch && !(
       eq.assetTag?.toLowerCase().includes(equipSearch.toLowerCase()) ||
       eq.brand?.toLowerCase().includes(equipSearch.toLowerCase()) ||
       eq.model?.toLowerCase().includes(equipSearch.toLowerCase()) ||
       eq.code?.toLowerCase().includes(equipSearch.toLowerCase())
-    )
-  )
+    )) return false
+    return true
+  })
 
   const toggleEquipment = (id) => {
     setForm(prev => ({
@@ -235,22 +242,112 @@ export default function NuevoCaso() {
               </span>
             </div>
             <div className="fp-card-body" style={{ paddingBottom: 0 }}>
-              {/* Búsqueda de equipos */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                padding: 'var(--space-2) var(--space-3)',
-                border: '1.5px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: 'var(--space-3)',
-                background: 'var(--color-bg)',
-              }}>
-                <span>🔍</span>
-                <input
-                  style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.875rem' }}
-                  placeholder="Filtrar por código, tag, marca o modelo…"
-                  value={equipSearch}
-                  onChange={e => setEquipSearch(e.target.value)}
-                />
+              {/* ── Filtros ── */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                {/* Búsqueda por AssetTag / marca / modelo */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  border: '1.5px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-bg)',
+                  flex: '1 1 200px',
+                }}>
+                  <span>🔍</span>
+                  <input
+                    style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.875rem' }}
+                    placeholder="Buscar por AssetTag, marca o modelo…"
+                    value={equipSearch}
+                    onChange={e => setEquipSearch(e.target.value)}
+                  />
+                </div>
+
+                {/* Filtro por PC (código) */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  border: '1.5px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--color-bg)',
+                  flex: '1 1 160px',
+                }}>
+                  <span>💻</span>
+                  <input
+                    style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.875rem' }}
+                    placeholder="Filtrar por código PC…"
+                    value={filterPC}
+                    onChange={e => setFilterPC(e.target.value)}
+                  />
+                </div>
+
+                {/* Filtro por Laboratorio */}
+                <select
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    border: '1.5px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-bg)',
+                    fontSize: '0.875rem',
+                    flex: '1 1 180px',
+                    color: filterLab ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  }}
+                  value={filterLab}
+                  onChange={e => setFilterLab(e.target.value)}
+                >
+                  <option value="">🏫 Todos los laboratorios</option>
+                  {[...new Map(
+                    equipments
+                      .filter(eq => eq.laboratory)
+                      .map(eq => [eq.laboratory.id, eq.laboratory])
+                  ).values()].map(lab => (
+                    <option key={lab.id} value={String(lab.id)}>
+                      {lab.name}{lab.building ? ` — ${lab.building}` : ''}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Filtro por Tipo de Dispositivo */}
+                <select
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    border: '1.5px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--color-bg)',
+                    fontSize: '0.875rem',
+                    flex: '1 1 180px',
+                    color: filterType ? 'var(--color-text)' : 'var(--color-text-muted)',
+                  }}
+                  value={filterType}
+                  onChange={e => setFilterType(e.target.value)}
+                >
+                  <option value="">🖨️ Todos los tipos</option>
+                  {[...new Map(
+                    equipments
+                      .filter(eq => eq.equipmentType)
+                      .map(eq => [eq.equipmentType.id, eq.equipmentType])
+                  ).values()].map(t => (
+                    <option key={t.id} value={String(t.id)}>{t.name}</option>
+                  ))}
+                </select>
+
+                {/* Limpiar filtros */}
+                {(equipSearch || filterPC || filterLab || filterType) && (
+                  <button
+                    type="button"
+                    onClick={() => { setEquipSearch(''); setFilterPC(''); setFilterLab(''); setFilterType('') }}
+                    style={{
+                      padding: 'var(--space-2) var(--space-3)',
+                      border: '1.5px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--color-surface)',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      color: 'var(--color-text-muted)',
+                    }}
+                  >
+                    ✕ Limpiar filtros
+                  </button>
+                )}
               </div>
 
               <div className="fp-equip-list" style={{ marginBottom: 'var(--space-5)' }}>
@@ -258,8 +355,8 @@ export default function NuevoCaso() {
                   <div className="fp-empty">
                     {equipments.length === 0
                       ? 'No hay equipos en el sistema.'
-                      : equipSearch
-                        ? 'Ningún equipo coincide con la búsqueda.'
+                      : (equipSearch || filterPC || filterLab || filterType)
+                        ? 'Ningún equipo coincide con los filtros aplicados.'
                         : 'No hay equipos disponibles (todos están en mantenimiento o dados de baja).'}
                   </div>
                 ) : (
@@ -273,11 +370,28 @@ export default function NuevoCaso() {
                       >
                         <input type="checkbox" checked={selected} readOnly />
                         <div className="fp-equip-name">
-                          <strong>{eq.code}</strong>
-                          {eq.assetTag && <> · {eq.assetTag}</>}
-                          {' — '}
-                          {eq.brand} {eq.model}
-                          {eq.serialNumber && <span> · {eq.serialNumber}</span>}
+                          <span style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            color: 'var(--color-primary)',
+                            background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            marginRight: 6,
+                          }}>
+                            {eq.equipmentType?.name ?? '—'}
+                          </span>
+                          <strong>{eq.assetTag ?? '—'}</strong>
+                          {' · '}
+                          {eq.brand ?? '—'} {eq.model ?? '—'}
+                          {eq.code && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}> · {eq.code}</span>}
+                          {eq.laboratory?.name && (
+                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                              {' · '}{eq.laboratory.name}
+                            </span>
+                          )}
                         </div>
                       </div>
                     )
