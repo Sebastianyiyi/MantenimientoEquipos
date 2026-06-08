@@ -21,4 +21,7 @@ public class Equipment
 
     public Guid? LaboratoristaUserId { get; set; }
     public string? LaboratoristaNombre { get; set; }
+
+    public string? BajaMotivo { get; set; }
+    public DateTime? BajaAt { get; set; }
 }

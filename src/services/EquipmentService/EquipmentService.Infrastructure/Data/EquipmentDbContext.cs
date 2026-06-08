@@ -107,6 +107,11 @@ public class EquipmentDbContext : DbContext
 
             entity.Property(e => e.LaboratoristaNombre)
                 .HasMaxLength(150);
+
+            entity.Property(e => e.BajaMotivo)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.BajaAt);
         });
 
         modelBuilder.Entity<EquipmentCodeCounter>(entity =>

@@ -19,6 +19,7 @@ import EditarEquipo from './pages/equipos/editar/EditarEquipo'
 import FichaEquipo from './pages/equipos/ficha/FichaEquipo'
 import NuevoCaso from './pages/casos/nuevo/NuevoCaso'
 import EditarCaso from './pages/casos/editar/EditarCaso'
+import DetalleCaso from './pages/casos/detalle/DetalleCaso'
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
             <Route path="/reemplazo" element={<Reemplazo />} />
             <Route path="/casos/nuevo" element={<NuevoCaso />} />
             <Route path="/casos/:id/editar" element={<EditarCaso />} />
+            <Route path="/casos/:id/detalle" element={<DetalleCaso />} />
             <Route path="/importar" element={<Importar />} />
           </Route>
         </Route>

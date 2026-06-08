@@ -51,7 +51,7 @@ function StatCard({ label, value, icon }) {
   )
 }
 
-function CasoCard({ caso, usuariosMap }) {
+function CasoCard({ caso, usuariosMap, equipment }) {
   const [expanded, setExpanded] = useState(false)
 
   const tipoStyle  = TIPO_COLOR[caso.maintenanceType]  ?? { bg: '#f3f4f6', color: '#374151' }
@@ -79,6 +79,9 @@ function CasoCard({ caso, usuariosMap }) {
             <span className="hdv-caso-number">{caso.ticketNumber}</span>
             <Badge text={caso.maintenanceType} style={{ background: tipoStyle.bg, color: tipoStyle.color }} />
             <Badge text={caso.ticketStatus} style={{ background: statStyle.bg, color: statStyle.color }} />
+            {equipment?.status === 'Dado de baja' && showBaja && (
+              <Badge text="⛔ Baja" style={{ background: '#fef2f2', color: '#991b1b' }} />
+            )}
           </div>
           <div className="hdv-caso-header-right">
             <span className="hdv-caso-date">
@@ -208,6 +211,25 @@ function CasoCard({ caso, usuariosMap }) {
                   Este caso aún no tiene detalle registrado (técnicos, actividades, diagnósticos ni recursos).
                 </p>
               )}
+
+            {/* Baja del equipo registrada durante este mantenimiento */}
+            {equipment?.status === 'Dado de baja' && equipment?.bajaMotivo && caso.showBaja && (
+              <section className="hdv-detail-section">
+                <h4 style={{ color: '#991b1b' }}>⛔ Equipo dado de baja en este mantenimiento</h4>
+                <div style={{
+                  padding: '0.6rem 0.9rem', background: '#fef2f2',
+                  border: '1px solid #fecaca', borderRadius: 8,
+                  fontSize: '0.875rem', color: '#7f1d1d',
+                }}>
+                  <strong>Motivo:</strong> {equipment.bajaMotivo}
+                  {equipment.bajaAt && (
+                    <span style={{ marginLeft: 8, color: '#9ca3af' }}>
+                      · {new Date(equipment.bajaAt).toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
@@ -336,7 +358,7 @@ export default function HojaDeVida() {
             <p className="hdv-equipment-type">{equipment.equipmentType?.name}</p>
             <div className="hdv-equipment-meta">
               <span>Serie: <strong>{equipment.serialNumber}</strong></span>
-              <span>Estado: <strong>{equipment.status}</strong></span>
+              <span>Estado: <strong style={equipment.status === 'Dado de baja' ? { color: '#991b1b' } : {}}>{equipment.status}</strong></span>
               {equipment.laboratoristaNombre && (
                 <span>Responsable: <strong>{equipment.laboratoristaNombre}</strong></span>
               )}
@@ -344,6 +366,24 @@ export default function HojaDeVida() {
                 <span>Compra: <strong>{new Date(equipment.purchaseDate).toLocaleDateString('es-EC')}</strong></span>
               )}
             </div>
+            {/* Alerta de baja */}
+            {equipment.status === 'Dado de baja' && (
+              <div style={{
+                marginTop: '0.75rem', padding: '0.6rem 0.9rem',
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: 8, fontSize: '0.85rem', color: '#7f1d1d',
+              }}>
+                <strong>⛔ Equipo dado de baja</strong>
+                {equipment.bajaMotivo && (
+                  <span style={{ marginLeft: 6 }}>· Motivo: {equipment.bajaMotivo}</span>
+                )}
+                {equipment.bajaAt && (
+                  <span style={{ marginLeft: 6, color: '#9ca3af' }}>
+                    · {new Date(equipment.bajaAt).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -376,11 +416,13 @@ export default function HojaDeVida() {
           </div>
         ) : (
           <div className="hdv-timeline">
-            {historia.map((caso) => (
+            {historia.map((caso, idx) => (
               <CasoCard
                 key={caso.ticketId}
                 caso={caso}
                 usuariosMap={usuariosMap}
+                equipment={equipment}
+                showBaja={idx === 0}
               />
             ))}
           </div>

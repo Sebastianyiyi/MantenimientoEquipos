@@ -62,6 +62,8 @@ public class EquipmentsController : ControllerBase
                 e.UpdatedAt,
                 e.LaboratoristaUserId,
                 e.LaboratoristaNombre,
+                e.BajaMotivo,
+                e.BajaAt,
                 EquipmentType = new
                 {
                     e.EquipmentType.Id,
@@ -100,6 +102,8 @@ public class EquipmentsController : ControllerBase
             equipment.UpdatedAt,
             equipment.LaboratoristaUserId,
             equipment.LaboratoristaNombre,
+            equipment.BajaMotivo,
+            equipment.BajaAt,
             EquipmentType = new
             {
                 equipment.EquipmentType.Id,
@@ -280,6 +284,25 @@ public class EquipmentsController : ControllerBase
         return Ok(new { message = "Estado actualizado correctamente.", equipment.Status });
     }
 
+    [HttpPatch("{id:guid}/decommission")]
+    public async Task<IActionResult> Decommission(Guid id, [FromBody] DecommissionDto dto)
+    {
+        var equipment = await _context.Equipments.FindAsync(id);
+        if (equipment == null || !equipment.IsActive)
+            return NotFound(new { message = "Equipo no encontrado." });
+
+        if (string.IsNullOrWhiteSpace(dto.Motivo))
+            return BadRequest(new { message = "Debe indicar el motivo de la baja." });
+
+        equipment.Status = "Dado de baja";
+        equipment.BajaMotivo = dto.Motivo.Trim();
+        equipment.BajaAt = DateTime.Now;
+        equipment.UpdatedAt = DateTime.Now;
+
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Equipo dado de baja correctamente.", equipment.Status, equipment.BajaMotivo, equipment.BajaAt });
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
@@ -399,6 +422,11 @@ public class UpdateEquipmentDto
 public class UpdateStatusDto
 {
     public string Status { get; set; } = null!;
+}
+
+public class DecommissionDto
+{
+    public string Motivo { get; set; } = null!;
 }
 
 public class AssignLaboratoristaDto
