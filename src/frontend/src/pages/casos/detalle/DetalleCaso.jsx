@@ -75,6 +75,15 @@ export default function DetalleCaso() {
   const [bajaValidating, setBajaValidating] = useState(false)
   const [bajaBlockReason, setBajaBlockReason] = useState(null) // null | string[]
 
+  // ── Marcar Finalizado (equipo) ──
+  const [finEquipoValidating, setFinEquipoValidating] = useState(false)
+  const [finEquipoBlockReason, setFinEquipoBlockReason] = useState({}) // { [teId]: string[] }
+
+  // ── Marcar como Terminado (ticket) ──
+  const [finTicketValidating, setFinTicketValidating] = useState(false)
+  const [finTicketBlockReason, setFinTicketBlockReason] = useState(null) // null | string[]
+  const [showFinTicketBlock, setShowFinTicketBlock] = useState(false)
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-'
     const stripped = String(dateStr)
@@ -154,6 +163,32 @@ export default function DetalleCaso() {
   }
 
   const handleEquipmentStatusChange = async (teId, newSt) => {
+    if (newSt === 'Terminado') {
+      setFinEquipoValidating(true)
+      try {
+        const [techRes, actRes, diagRes] = await Promise.all([
+          maintenanceApi.get(`/ticket-equipments/${teId}/technicians`),
+          maintenanceApi.get(`/ticket-equipments/${teId}/activities`),
+          maintenanceApi.get(`/ticket-equipments/${teId}/diagnoses`),
+        ])
+        const faltantes = []
+        if (!techRes.data?.length)
+          faltantes.push('Técnicos Asignados: debe asignar al menos un técnico')
+        if (!actRes.data?.length && !diagRes.data?.length)
+          faltantes.push('Actividades y Diagnósticos: debe registrar al menos una actividad o diagnóstico')
+        if (faltantes.length > 0) {
+          setFinEquipoBlockReason(prev => ({ ...prev, [teId]: faltantes }))
+          setFinEquipoValidating(false)
+          return
+        }
+      } catch {
+        setFinEquipoValidating(false)
+        alert('No se pudo validar los campos requeridos. Intente de nuevo.')
+        return
+      }
+      setFinEquipoValidating(false)
+    }
+
     setChangingStatus(true)
     try {
       await maintenanceApi.put(`/ticket-equipments/${teId}/status`, {
@@ -161,7 +196,7 @@ export default function DetalleCaso() {
         comment: '',
         changedByUserId: user?.id,
       })
-      // Si el equipo pasó a "En Proceso" y el caso aún está "Pendiente", avanzar el caso también
+      setFinEquipoBlockReason(prev => { const n = { ...prev }; delete n[teId]; return n })
       if (newSt === 'En Proceso' && ticket?.status === 'Pendiente') {
         try {
           await maintenanceApi.put(`/tickets/${id}/status`, {
@@ -170,7 +205,7 @@ export default function DetalleCaso() {
             changedByUserId: user?.id,
           })
         } catch {
-          // si falla el auto-avance del ticket, no bloquear — el equipo ya cambió
+          // silencioso
         }
       }
       await loadTicket()
@@ -183,6 +218,59 @@ export default function DetalleCaso() {
   }
 
   const handleTicketStatusChange = async (newSt) => {
+    if (newSt === 'Terminado') {
+      setFinTicketValidating(true)
+      try {
+        const tes = ticket?.ticketEquipments ?? []
+        const faltantes = []
+
+        const equiposSinTerminar = tes.filter(te => {
+          const eqReal = equipments.find(e => (e.id ?? e.Id) === te.equipmentId)
+          const dadoDeBaja = eqReal?.status === 'Dado de baja'
+          return !dadoDeBaja && te.status !== 'Terminado'
+        })
+        if (equiposSinTerminar.length > 0) {
+          const labels = equiposSinTerminar.map(te => getEquipmentLabel(te.equipmentId))
+          faltantes.push(`Estado de equipos: los siguientes equipos aún no están finalizados: ${labels.join(', ')}`)
+        }
+
+        const checks = await Promise.allSettled(
+          tes.map(te =>
+            Promise.all([
+              maintenanceApi.get(`/ticket-equipments/${te.id}/technicians`),
+              maintenanceApi.get(`/ticket-equipments/${te.id}/activities`),
+              maintenanceApi.get(`/ticket-equipments/${te.id}/diagnoses`),
+            ]).then(([techRes, actRes, diagRes]) => ({ te, techRes, actRes, diagRes }))
+          )
+        )
+        checks.forEach(result => {
+          if (result.status !== 'fulfilled') return
+          const { te, techRes, actRes, diagRes } = result.value
+          const eqReal = equipments.find(e => (e.id ?? e.Id) === te.equipmentId)
+          if (eqReal?.status === 'Dado de baja') return 
+          const label = getEquipmentLabel(te.equipmentId)
+          if (!techRes.data?.length)
+            faltantes.push(`${label}: debe tener al menos un técnico asignado`)
+          if (!actRes.data?.length && !diagRes.data?.length)
+            faltantes.push(`${label}: debe tener al menos una actividad o diagnóstico registrado`)
+        })
+
+        if (faltantes.length > 0) {
+          setFinTicketBlockReason(faltantes)
+          setShowFinTicketBlock(true)
+          setFinTicketValidating(false)
+          return
+        }
+      } catch {
+        setFinTicketValidating(false)
+        alert('No se pudo validar los requisitos del caso. Intente de nuevo.')
+        return
+      }
+      setFinTicketValidating(false)
+      setFinTicketBlockReason(null)
+      setShowFinTicketBlock(false)
+    }
+
     setChangingStatus(true)
     try {
       await maintenanceApi.put(`/tickets/${id}/status`, {
@@ -206,12 +294,10 @@ export default function DetalleCaso() {
     setBajaBlockReason(null)
 
     try {
-      // Consultar en paralelo: técnicos, actividades, diagnósticos y recursos del ticketEquipment
-      const [techRes, actRes, diagRes, resRes] = await Promise.all([
+      const [techRes, actRes, diagRes] = await Promise.all([
         maintenanceApi.get(`/ticket-equipments/${teId}/technicians`),
         maintenanceApi.get(`/ticket-equipments/${teId}/activities`),
         maintenanceApi.get(`/ticket-equipments/${teId}/diagnoses`),
-        maintenanceApi.get(`/ticket-equipments/${teId}/resources`),
       ])
 
       const faltantes = []
@@ -219,8 +305,6 @@ export default function DetalleCaso() {
         faltantes.push('Técnicos Asignados: debe asignar al menos un técnico')
       if (!actRes.data?.length && !diagRes.data?.length)
         faltantes.push('Actividades y Diagnósticos: debe registrar al menos una actividad o diagnóstico')
-      // Recursos son opcionales — comentar la línea siguiente si se vuelven obligatorios
-      // if (!resRes.data?.length) faltantes.push('Recursos Utilizados: debe registrar al menos un recurso')
 
       if (faltantes.length > 0) {
         setBajaBlockReason(faltantes)
@@ -340,6 +424,7 @@ export default function DetalleCaso() {
             </div>
           )}
         </div>
+      </div> {/* ← CORREGIDO: Se cerró la tarjeta de Info General aquí */}
 
       {/* ── Estado general del caso ── */}
       <div className="fp-card">
@@ -362,23 +447,46 @@ export default function DetalleCaso() {
             </div>
             {ticket.status !== 'Terminado' && nextStatus[ticket.status] && (
               <button
-                disabled={changingStatus}
+                disabled={changingStatus || finTicketValidating}
                 onClick={() => handleTicketStatusChange(nextStatus[ticket.status])}
                 style={{
                   padding: '0.5rem 1rem', borderRadius: 8,
                   border: 'none', background: '#C0191F',
                   color: 'white', fontSize: '0.875rem', fontWeight: 600,
-                  cursor: changingStatus ? 'not-allowed' : 'pointer',
-                  opacity: changingStatus ? 0.6 : 1,
+                  cursor: (changingStatus || finTicketValidating) ? 'not-allowed' : 'pointer',
+                  opacity: (changingStatus || finTicketValidating) ? 0.6 : 1,
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
                 }}
               >
-                {changingStatus ? 'Actualizando...' : `→ Marcar como ${nextStatus[ticket.status]}`}
+                {finTicketValidating ? (
+                  <><span style={{ display:'inline-block', width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'repSpin .6s linear infinite' }} /> Verificando…</>
+                ) : changingStatus ? 'Actualizando...' : `→ Marcar como ${nextStatus[ticket.status]}`}
               </button>
             )}
             {ticket.status === 'Terminado' && (
               <span style={{ color: '#166534', fontWeight: 600 }}>✔ Caso cerrado</span>
             )}
           </div>
+
+          {/* ── Errores de validación al cerrar el caso ── */}
+          {showFinTicketBlock && finTicketBlockReason && (
+            <div style={{
+              marginTop: '0.75rem', padding: '0.75rem 1rem',
+              background: '#fef3c7', border: '1px solid #fde68a',
+              borderRadius: 8, fontSize: '0.82rem', color: '#92400e',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <p style={{ margin: '0 0 0.4rem', fontWeight: 700 }}>⚠ Para cerrar el caso, complete lo siguiente:</p>
+                <button
+                  onClick={() => setShowFinTicketBlock(false)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '1rem', lineHeight: 1, padding: 0, marginLeft: 8 }}
+                >✕</button>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                {finTicketBlockReason.map((r, i) => <li key={i} style={{ marginBottom: 2 }}>{r}</li>)}
+              </ul>
+            </div>
+          )}
 
           {/* Historial de estados */}
           <div style={{ marginTop: '1rem' }}>
@@ -435,10 +543,7 @@ export default function DetalleCaso() {
             )}
           </div>
         </div>
-      </div>
-
-    </div>
-
+      </div> {/* ← CORREGIDO: Se redujeron los divs sobrantes que descuadraban el árbol */}
 
       {/* ── Control de estado por equipo ── */}
       <div className="fp-card">
@@ -454,14 +559,11 @@ export default function DetalleCaso() {
               const mostrandoBaja = bajaEquipoId === te.equipmentId
               const ticketCerrado = ticket.status === 'Terminado'
 
-              // Flujo: Pendiente → En Proceso → Terminado
-              // "Dar de baja" solo aparece cuando te.status === 'En Proceso' y ticket no está cerrado
               const puedeAvanzar = !ticketCerrado && !yaDadoDeBaja && te.status !== 'Terminado' && nextStatus[te.status]
               const puedeDarDeBaja = !ticketCerrado && !yaDadoDeBaja && te.status === 'En Proceso'
 
               return (
                 <div key={te.id} style={{ marginBottom: '0.75rem' }}>
-                  {/* Fila de estado */}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '0.65rem 0.9rem', borderRadius: mostrandoBaja ? '8px 8px 0 0' : 8,
@@ -483,24 +585,25 @@ export default function DetalleCaso() {
                         <span style={{ fontSize: '0.78rem', color: '#166534', fontWeight: 600 }}>✔ Completado</span>
                       )}
 
-                      {/* Botón avanzar estado: Pendiente→En Proceso o En Proceso→Terminado */}
                       {puedeAvanzar && (
                         <button
-                          disabled={changingStatus}
+                          disabled={changingStatus || finEquipoValidating}
                           onClick={() => handleEquipmentStatusChange(te.id, nextStatus[te.status])}
                           style={{
                             padding: '0.3rem 0.75rem', borderRadius: 6,
                             border: '1px solid #3b82f6', background: '#eff6ff',
                             color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600,
-                            cursor: changingStatus ? 'not-allowed' : 'pointer',
-                            opacity: changingStatus ? 0.6 : 1, whiteSpace: 'nowrap',
+                            cursor: (changingStatus || finEquipoValidating) ? 'not-allowed' : 'pointer',
+                            opacity: (changingStatus || finEquipoValidating) ? 0.6 : 1, whiteSpace: 'nowrap',
+                            display: 'flex', alignItems: 'center', gap: '0.3rem',
                           }}
                         >
-                          → {nextStatus[te.status]}
+                          {finEquipoValidating && nextStatus[te.status] === 'Terminado' ? (
+                            <><span style={{ display:'inline-block', width:10, height:10, border:'2px solid rgba(29,78,216,.3)', borderTopColor:'#1d4ed8', borderRadius:'50%', animation:'repSpin .6s linear infinite' }} /> Verificando…</>
+                          ) : `→ ${nextStatus[te.status]}`}
                         </button>
                       )}
 
-                      {/* Botón "Dar de baja": solo en estado "En Proceso" y ticket no cerrado */}
                       {puedeDarDeBaja && (
                         <button
                           onClick={() => {
@@ -522,7 +625,6 @@ export default function DetalleCaso() {
                     </div>
                   </div>
 
-                  {/* Panel de baja dado de baja ya existente */}
                   {yaDadoDeBaja && eqReal?.bajaMotivo && (
                     <div style={{
                       padding: '0.6rem 0.9rem',
@@ -539,7 +641,26 @@ export default function DetalleCaso() {
                     </div>
                   )}
 
-                  {/* Formulario de baja */}
+                  {finEquipoBlockReason[te.id] && !mostrandoBaja && (
+                    <div style={{
+                      padding: '0.65rem 0.9rem',
+                      background: '#fef3c7', border: '1px solid #fde68a',
+                      borderTop: 'none', borderRadius: '0 0 8px 8px',
+                      fontSize: '0.8rem', color: '#92400e',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <p style={{ margin: '0 0 0.35rem', fontWeight: 700 }}>⚠ Antes de finalizar este equipo, completa:</p>
+                        <button
+                          onClick={() => setFinEquipoBlockReason(prev => { const n = { ...prev }; delete n[te.id]; return n })}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', fontSize: '1rem', lineHeight: 1, padding: 0, marginLeft: 8 }}
+                        >✕</button>
+                      </div>
+                      <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                        {finEquipoBlockReason[te.id].map((r, i) => <li key={i}>{r}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
                   {mostrandoBaja && !yaDadoDeBaja && (
                     <div style={{
                       padding: '0.9rem 0.9rem',
@@ -563,7 +684,6 @@ export default function DetalleCaso() {
                         }}
                       />
 
-                      {/* Errores de validación de campos requeridos */}
                       {bajaBlockReason && bajaEquipoId === te.equipmentId && (
                         <div style={{
                           marginTop: '0.6rem', padding: '0.65rem 0.8rem',
@@ -625,7 +745,7 @@ export default function DetalleCaso() {
         <div className="fp-card-body">
           {ticket.ticketEquipments?.length > 0 ? (
             ticket.ticketEquipments.map(te => (
-              <div key={`tech-${te.id}`} style={{ marginBottom: '1rem' }}>
+              <div key={`tech-${te.id}`} style={{ TribuMargin: '1rem', marginBottom: '1rem' }}>
                 <p style={{
                   fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
                   margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em',
@@ -760,7 +880,7 @@ export default function DetalleCaso() {
                 >Sí, dar de baja</button>
               </div>
             </div>
-            <style>{`@keyframes baja-modal-in { from { opacity:0; transform:scale(.94) } to { opacity:1; transform:scale(1) } }`}</style>
+            <style>{`@keyframes baja-modal-in { from { opacity:0; transform:scale(.94) } to { opacity:1; transform:scale(1) } } @keyframes repSpin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )
       })()}
