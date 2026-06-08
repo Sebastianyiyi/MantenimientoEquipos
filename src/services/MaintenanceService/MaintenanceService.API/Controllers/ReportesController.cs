@@ -148,4 +148,94 @@ public class ReportesController : ControllerBase
             Hasta = hasta
         });
     }
+
+    // POST /api/reportes/hoja-vida-multiple
+    [HttpPost("hoja-vida-multiple")]
+    public async Task<IActionResult> GetHojaVidaMultiple([FromBody] List<Guid> equipmentIds)
+    {
+        if (equipmentIds == null || equipmentIds.Count == 0)
+            return BadRequest(new { message = "Debes enviar al menos un equipo." });
+
+        var ticketEquipments = await _db.TicketEquipments
+            .Where(te => equipmentIds.Contains(te.EquipmentId))
+            .Include(te => te.Ticket)
+            .Include(te => te.TicketTechnicians)
+            .Include(te => te.Resources)
+            .Include(te => te.TicketEquipmentActivities)
+                .ThenInclude(tea => tea.CatalogActivity)
+            .Include(te => te.TicketEquipmentDiagnoses)
+                .ThenInclude(ted => ted.CatalogDiagnosis)
+            .ToListAsync();
+
+        var resultado = equipmentIds.Select(equipmentId =>
+        {
+            var porEquipo = ticketEquipments.Where(te => te.EquipmentId == equipmentId).ToList();
+
+            var historia = porEquipo
+                .GroupBy(te => te.Ticket)
+                .OrderByDescending(g => g.Key.CreatedAt)
+                .Select(g =>
+                {
+                    var ticket = g.Key;
+                    var tecnicos = g.SelectMany(te => te.TicketTechnicians)
+                        .GroupBy(tt => tt.TechnicianUserId)
+                        .Select(tg => new
+                        {
+                            TechnicianUserId = tg.Key,
+                            ActivityDescription = string.Join(" | ", tg
+                                .Where(tt => !string.IsNullOrWhiteSpace(tt.ActivityDescription))
+                                .Select(tt => tt.ActivityDescription!)),
+                            Observations = string.Join(" | ", tg
+                                .Where(tt => !string.IsNullOrWhiteSpace(tt.Observations))
+                                .Select(tt => tt.Observations!))
+                        }).ToList();
+
+                    var actividades = g.SelectMany(te => te.TicketEquipmentActivities)
+                        .Select(tea => new
+                        {
+                            Nombre = tea.CatalogActivity.Name,
+                            Categoria = tea.CatalogActivity.Category,
+                            tea.AddedAt
+                        }).ToList();
+
+                    var diagnosticos = g.SelectMany(te => te.TicketEquipmentDiagnoses)
+                        .Select(ted => new
+                        {
+                            Nombre = ted.CatalogDiagnosis.Name,
+                            Severidad = ted.CatalogDiagnosis.Severity,
+                            ted.AddedAt
+                        }).ToList();
+
+                    var recursos = g.SelectMany(te => te.Resources)
+                        .Select(r => new { r.Name, r.Description, r.Quantity }).ToList();
+
+                    return new
+                    {
+                        TicketNumber = ticket.TicketNumber,
+                        Title = ticket.Title,
+                        MaintenanceType = ticket.MaintenanceType,
+                        TicketStatus = ticket.Status,
+                        Priority = ticket.Priority,
+                        FechaInicio = ticket.CreatedAt,
+                        FechaCierre = ticket.ClosedAt,
+                        Tecnicos = tecnicos,
+                        Actividades = actividades,
+                        Diagnosticos = diagnosticos,
+                        Recursos = recursos
+                    };
+                }).ToList();
+
+            return new
+            {
+                EquipmentId = equipmentId,
+                TotalCasos = historia.Count,
+                TotalActividades = historia.Sum(h => h.Actividades.Count),
+                TotalRecursos = historia.Sum(h => h.Recursos.Count),
+                UltimoMantenimiento = historia.FirstOrDefault()?.FechaInicio,
+                Historia = historia
+            };
+        }).ToList();
+
+        return Ok(resultado);
+    }
 }

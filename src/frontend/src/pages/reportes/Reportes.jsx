@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { maintenanceApi, equipmentApi } from '../../services/api'
+import { maintenanceApi, equipmentApi, locationApi } from '../../services/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -13,17 +13,25 @@ export default function Reportes() {
   const [formato, setFormato]                     = useState('pdf')
   const [desde, setDesde]                         = useState(HACE_30)
   const [hasta, setHasta]                         = useState(HOY)
-  const [equipoId, setEquipoId]                   = useState('')
+  const [equiposSeleccionados, setEquiposSeleccionados] = useState([]) // array de objetos equipo completos
   const [generando, setGenerando]                 = useState(false)
   const [error, setError]                         = useState('')
   const [busqueda, setBusqueda]                   = useState('')
   const [filtroCategoria, setFiltroCategoria]     = useState('')
   const [filtroEstado, setFiltroEstado]           = useState('')
+  const [laboratorios, setLaboratorios]       = useState([])
+  const [filtroLaboratorio, setFiltroLaboratorio] = useState('')
+  const [busquedaLab, setBusquedaLab]         = useState('')
+  const [labDropdownOpen, setLabDropdownOpen] = useState(false)
 
   useEffect(() => {
     equipmentApi.get('/equipments')
       .then(r => setEquipments(r.data))
       .catch(() => setEquipments([]))
+
+    locationApi.get('/laboratorios')
+      .then(r => setLaboratorios(r.data))
+      .catch(() => setLaboratorios([]))
   }, [])
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-EC') : '—'
@@ -102,97 +110,111 @@ export default function Reportes() {
   }
 
   const generarPdfHojaVida = async () => {
-    if (!equipoId) { setError('Selecciona un equipo.'); return }
-    const equipo = equipments.find(e => e.id === equipoId)
-    const res = await maintenanceApi.get(`/reportes/hoja-vida/${equipoId}`)
-    const d = res.data
+    if (equiposSeleccionados.length === 0) { setError('Selecciona al menos un equipo.'); return }
+
+    const ids = equiposSeleccionados.map(e => e.id)
+    const res = await maintenanceApi.post('/reportes/hoja-vida-multiple', ids)
+    const lista = res.data  // array, uno por equipo
+
     const doc = new jsPDF()
     const rojo = [192, 25, 31]
+    let esPrimeraPagina = true
 
-    doc.setFillColor(...rojo)
-    doc.rect(0, 0, 210, 28, 'F')
-    doc.setTextColor(255, 255, 255)
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'bold')
-    doc.text('UNIVERSIDAD TÉCNICA DE AMBATO', 105, 10, { align: 'center' })
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Sistema de Mantenimiento de Equipos Tecnológicos — FISEI', 105, 17, { align: 'center' })
-    doc.text(`Hoja de Vida: ${equipo?.assetTag ?? equipoId}`, 105, 23, { align: 'center' })
-    doc.setTextColor(0, 0, 0)
-    let y = 36
+    for (const datos of lista) {
+      const equipo = equiposSeleccionados.find(e => e.id === datos.equipmentId)
 
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    doc.text('Datos del Equipo', 14, y); y += 6
+      if (!esPrimeraPagina) doc.addPage()
+      esPrimeraPagina = false
 
-    autoTable(doc, {
-      startY: y,
-      body: [
-        ['Asset Tag', equipo?.assetTag ?? '—'],
-        ['Marca / Modelo', `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
-        ['Serie', equipo?.serialNumber ?? '—'],
-        ['Estado actual', equipo?.status ?? '—'],
-        ['Total de casos', d.totalCasos],
-        ['Total de actividades', d.totalActividades],
-        ['Total de recursos', d.totalRecursos],
-        ['Último mantenimiento', formatDate(d.ultimoMantenimiento)],
-      ],
-      headStyles: { fillColor: rojo },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
-      margin: { left: 14, right: 14 },
-    })
-    y = doc.lastAutoTable.finalY + 8
-
-    for (const caso of d.historia ?? []) {
-      if (y > 240) { doc.addPage(); y = 20 }
+      // Encabezado
+      doc.setFillColor(...rojo)
+      doc.rect(0, 0, 210, 28, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(14)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11)
-      doc.setTextColor(...rojo)
-      doc.text(`${caso.ticketNumber} — ${caso.title}`, 14, y); y += 5
-      doc.setTextColor(0, 0, 0)
-      doc.setFontSize(9)
+      doc.text('UNIVERSIDAD TÉCNICA DE AMBATO', 105, 10, { align: 'center' })
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
-      doc.text(`Tipo: ${caso.maintenanceType}  |  Estado: ${caso.ticketStatus}  |  Prioridad: ${caso.priority}  |  Inicio: ${formatDate(caso.fechaInicio)}  |  Cierre: ${formatDate(caso.fechaCierre)}`, 14, y)
-      y += 5
+      doc.text('Sistema de Mantenimiento de Equipos Tecnológicos — FISEI', 105, 17, { align: 'center' })
+      doc.text(`Hoja de Vida: ${equipo?.assetTag ?? datos.equipmentId}`, 105, 23, { align: 'center' })
+      doc.setTextColor(0, 0, 0)
+      let y = 36
 
-      if (caso.actividades?.length > 0) {
-        autoTable(doc, {
-          startY: y,
-          head: [['Actividades realizadas', 'Categoría', 'Fecha']],
-          body: caso.actividades.map(a => [a.nombre, a.categoria, formatDate(a.addedAt)]),
-          headStyles: { fillColor: [75, 85, 99] },
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 8 },
-        })
-        y = doc.lastAutoTable.finalY + 4
-      }
+      // Datos del equipo
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text('Datos del Equipo', 14, y); y += 6
 
-      if (caso.diagnosticos?.length > 0) {
-        autoTable(doc, {
-          startY: y,
-          head: [['Diagnósticos', 'Severidad', 'Fecha']],
-          body: caso.diagnosticos.map(diag => [diag.nombre, diag.severidad, formatDate(diag.addedAt)]),
-          headStyles: { fillColor: [75, 85, 99] },
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 8 },
-        })
-        y = doc.lastAutoTable.finalY + 4
-      }
+      autoTable(doc, {
+        startY: y,
+        body: [
+          ['Asset Tag',            equipo?.assetTag ?? '—'],
+          ['Marca / Modelo',       `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
+          ['Serie',                equipo?.serialNumber ?? '—'],
+          ['Estado actual',        equipo?.status ?? '—'],
+          ['Total de casos',       datos.totalCasos],
+          ['Total de actividades', datos.totalActividades],
+          ['Total de recursos',    datos.totalRecursos],
+          ['Último mantenimiento', formatDate(datos.ultimoMantenimiento)],
+        ],
+        headStyles: { fillColor: rojo },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
+        margin: { left: 14, right: 14 },
+      })
+      y = doc.lastAutoTable.finalY + 8
 
-      if (caso.recursos?.length > 0) {
-        autoTable(doc, {
-          startY: y,
-          head: [['Recursos utilizados', 'Descripción', 'Cantidad']],
-          body: caso.recursos.map(r => [r.name, r.description ?? '—', r.quantity]),
-          headStyles: { fillColor: [75, 85, 99] },
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 8 },
-        })
-        y = doc.lastAutoTable.finalY + 8
+      // Historia de casos
+      for (const caso of datos.historia ?? []) {
+        if (y > 240) { doc.addPage(); y = 20 }
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11)
+        doc.setTextColor(...rojo)
+        doc.text(`${caso.ticketNumber} — ${caso.title}`, 14, y); y += 5
+        doc.setTextColor(0, 0, 0)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.text(`Tipo: ${caso.maintenanceType}  |  Estado: ${caso.ticketStatus}  |  Prioridad: ${caso.priority}  |  Inicio: ${formatDate(caso.fechaInicio)}  |  Cierre: ${formatDate(caso.fechaCierre)}`, 14, y)
+        y += 5
+
+        if (caso.actividades?.length > 0) {
+          autoTable(doc, {
+            startY: y,
+            head: [['Actividades realizadas', 'Categoría', 'Fecha']],
+            body: caso.actividades.map(a => [a.nombre, a.categoria, formatDate(a.addedAt)]),
+            headStyles: { fillColor: [75, 85, 99] },
+            margin: { left: 14, right: 14 },
+            styles: { fontSize: 8 },
+          })
+          y = doc.lastAutoTable.finalY + 4
+        }
+
+        if (caso.diagnosticos?.length > 0) {
+          autoTable(doc, {
+            startY: y,
+            head: [['Diagnósticos', 'Severidad', 'Fecha']],
+            body: caso.diagnosticos.map(d => [d.nombre, d.severidad, formatDate(d.addedAt)]),
+            headStyles: { fillColor: [75, 85, 99] },
+            margin: { left: 14, right: 14 },
+            styles: { fontSize: 8 },
+          })
+          y = doc.lastAutoTable.finalY + 4
+        }
+
+        if (caso.recursos?.length > 0) {
+          autoTable(doc, {
+            startY: y,
+            head: [['Recursos utilizados', 'Descripción', 'Cantidad']],
+            body: caso.recursos.map(r => [r.name, r.description ?? '—', r.quantity]),
+            headStyles: { fillColor: [75, 85, 99] },
+            margin: { left: 14, right: 14 },
+            styles: { fontSize: 8 },
+          })
+          y = doc.lastAutoTable.finalY + 8
+        }
       }
     }
 
+    // Numeración de páginas
     const total = doc.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       doc.setPage(i)
@@ -200,7 +222,11 @@ export default function Reportes() {
       doc.setTextColor(150)
       doc.text(`Generado el ${formatDate(new Date())} — Página ${i} de ${total}`, 105, 290, { align: 'center' })
     }
-    doc.save(`HojaDeVida_${equipo?.assetTag ?? equipoId}.pdf`)
+
+    const nombre = equiposSeleccionados.length === 1
+      ? `HojaDeVida_${equiposSeleccionados[0].assetTag}`
+      : `HojasDeVida_${equiposSeleccionados.length}_equipos`
+    doc.save(`${nombre}.pdf`)
   }
 
   const generarExcelEstadisticas = async () => {
@@ -233,49 +259,45 @@ export default function Reportes() {
   }
 
   const generarExcelHojaVida = async () => {
-    if (!equipoId) { setError('Selecciona un equipo.'); return }
-    const equipo = equipments.find(e => e.id === equipoId)
-    const res = await maintenanceApi.get(`/reportes/hoja-vida/${equipoId}`)
-    const d = res.data
+    if (equiposSeleccionados.length === 0) { setError('Selecciona al menos un equipo.'); return }
+
+    const ids = equiposSeleccionados.map(e => e.id)
+    const res = await maintenanceApi.post('/reportes/hoja-vida-multiple', ids)
+    const lista = res.data
+
     const wb = XLSX.utils.book_new()
 
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-      ['HOJA DE VIDA DEL EQUIPO — FISEI UTA'],
-      [],
-      ['Asset Tag', equipo?.assetTag ?? '—'],
-      ['Marca / Modelo', `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
-      ['Serie', equipo?.serialNumber ?? '—'],
-      ['Estado', equipo?.status ?? '—'],
-      ['Total de casos', d.totalCasos],
-      ['Total de actividades', d.totalActividades],
-      ['Total de recursos', d.totalRecursos],
-      ['Último mantenimiento', formatDate(d.ultimoMantenimiento)],
-    ]), 'Resumen')
+    for (const datos of lista) {
+      const equipo = equiposSeleccionados.find(e => e.id === datos.equipmentId)
+      const tag = equipo?.assetTag ?? datos.equipmentId.slice(0, 8)
+      // Excel limita nombres de hoja a 31 caracteres
+      const nombreHoja = tag.slice(0, 31)
 
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-      ['Código', 'Título', 'Tipo', 'Estado', 'Prioridad', 'Fecha Inicio', 'Fecha Cierre'],
-      ...(d.historia ?? []).map(c => [
-        c.ticketNumber, c.title, c.maintenanceType,
-        c.ticketStatus, c.priority,
-        formatDate(c.fechaInicio), formatDate(c.fechaCierre)
-      ])
-    ]), 'Casos')
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+        ['HOJA DE VIDA DEL EQUIPO — FISEI UTA'],
+        [],
+        ['Asset Tag',            equipo?.assetTag ?? '—'],
+        ['Marca / Modelo',       `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
+        ['Serie',                equipo?.serialNumber ?? '—'],
+        ['Estado',               equipo?.status ?? '—'],
+        ['Total de casos',       datos.totalCasos],
+        ['Total de actividades', datos.totalActividades],
+        ['Total de recursos',    datos.totalRecursos],
+        ['Último mantenimiento', formatDate(datos.ultimoMantenimiento)],
+        [],
+        ['Código', 'Título', 'Tipo', 'Estado', 'Prioridad', 'Fecha Inicio', 'Fecha Cierre'],
+        ...(datos.historia ?? []).map(c => [
+          c.ticketNumber, c.title, c.maintenanceType,
+          c.ticketStatus, c.priority,
+          formatDate(c.fechaInicio), formatDate(c.fechaCierre)
+        ])
+      ]), nombreHoja)
+    }
 
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-      ['Caso', 'Actividad', 'Categoría', 'Fecha'],
-      ...(d.historia ?? []).flatMap(c =>
-        (c.actividades ?? []).map(a => [c.ticketNumber, a.nombre, a.categoria, formatDate(a.addedAt)])
-      )
-    ]), 'Actividades')
-
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-      ['Caso', 'Recurso', 'Descripción', 'Cantidad'],
-      ...(d.historia ?? []).flatMap(c =>
-        (c.recursos ?? []).map(r => [c.ticketNumber, r.name, r.description ?? '—', r.quantity])
-      )
-    ]), 'Recursos')
-
-    XLSX.writeFile(wb, `HojaDeVida_${equipo?.assetTag ?? equipoId}.xlsx`)
+    const nombre = equiposSeleccionados.length === 1
+      ? `HojaDeVida_${equiposSeleccionados[0].assetTag}`
+      : `HojasDeVida_${equiposSeleccionados.length}_equipos`
+    XLSX.writeFile(wb, `${nombre}.xlsx`)
   }
 
   const handleGenerar = async () => {
@@ -298,19 +320,20 @@ export default function Reportes() {
   const categorias = [...new Set(equipments.map(e => e.equipmentType?.name).filter(Boolean))].sort()
 
   const equiposFiltrados = equipments.filter(eq => {
-    const matchCat = !filtroCategoria || eq.equipmentType?.name === filtroCategoria
-    const matchEstado = !filtroEstado    || eq.status === filtroEstado
-    const q = busqueda.toLowerCase()
-    const matchBusqueda = !q ||
-      eq.assetTag?.toLowerCase().includes(q) ||
-      eq.brand?.toLowerCase().includes(q) ||
-      eq.model?.toLowerCase().includes(q) ||
-      eq.serialNumber?.toLowerCase().includes(q)
-    return matchCat && matchEstado && matchBusqueda
-  })
+  const matchCat = !filtroCategoria || eq.equipmentType?.name === filtroCategoria
+  const matchEstado = !filtroEstado || eq.status === filtroEstado
+  const matchLab = !filtroLaboratorio || eq.laboratoryName === filtroLaboratorio  // ← ajusta el campo
+  const q = busqueda.toLowerCase()
+  const matchBusqueda = !q ||
+    eq.assetTag?.toLowerCase().includes(q) ||
+    eq.brand?.toLowerCase().includes(q) ||
+    eq.model?.toLowerCase().includes(q) ||
+    eq.serialNumber?.toLowerCase().includes(q)
+  return matchCat && matchEstado && matchLab && matchBusqueda
+})
 
   return (
-    <div style={{ padding: '2rem', maxWidth: 700 }}>
+    <div style={{ padding: '2rem', maxWidth: 960 }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0 }}>Reportes Exportables</h1>
         <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
@@ -325,8 +348,7 @@ export default function Reportes() {
           { key: 'hojavida',     label: '📋 Hoja de vida de equipo' },
         ].map(t => (
           <button key={t.key} onClick={() => {
-            setTab(t.key)
-            setEquipoId(''); setBusqueda(''); setFiltroCategoria(''); setFiltroEstado('')
+            setTab(t.key); setEquiposSeleccionados([]); setBusqueda(''); setFiltroCategoria(''); setFiltroEstado(''); setFiltroLaboratorio(''); setBusquedaLab('')
           }} style={{
             padding: '0.5rem 1.25rem', borderRadius: 8, border: 'none',
             cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
@@ -339,7 +361,7 @@ export default function Reportes() {
         ))}
       </div>
 
-      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: '1.5rem' }}>
+      <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: '2rem 2.5rem' }}>
 
         {/* Formato */}
         <div style={{ marginBottom: '1.25rem' }}>
@@ -350,7 +372,7 @@ export default function Reportes() {
               { key: 'excel', label: '📊 Excel', sub: 'Hoja de cálculo' },
             ].map(f => (
               <div key={f.key} onClick={() => setFormato(f.key)} style={{
-                flex: 1, padding: '0.75rem 1rem', borderRadius: 8, cursor: 'pointer',
+                flex: 1, padding: '1.25rem 1rem', borderRadius: 8, cursor: 'pointer',
                 border: `2px solid ${formato === f.key ? '#C0191F' : '#e5e7eb'}`,
                 background: formato === f.key ? '#fef2f2' : 'white',
                 textAlign: 'center', transition: 'all 0.15s'
@@ -366,71 +388,175 @@ export default function Reportes() {
         {tab === 'hojavida' && (
           <div style={{ marginBottom: '1.25rem' }}>
 
-            {/* Filtros en fila */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
 
-              {/* Filtro categoría */}
+              {/* Filtro categoría — ahora como select */}
               <div>
                 <label style={labelStyle}>Categoría</label>
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                  <button
-                    onClick={() => { setFiltroCategoria(''); setEquipoId(''); setBusqueda('') }}
-                    style={chipStyle(filtroCategoria === '')}
-                  >
-                    Todas
-                  </button>
+                <select
+                  value={filtroCategoria}
+                  onChange={e => { setFiltroCategoria(e.target.value); setEquiposSeleccionados([]); setBusqueda('') }}
+                  style={inputStyle}
+                >
+                  <option value=''>Todas</option>
                   {categorias.map(cat => (
-                    <button
-                      key={cat}
-                      onClick={() => { setFiltroCategoria(cat); setEquipoId(''); setBusqueda('') }}
-                      style={chipStyle(filtroCategoria === cat)}
-                    >
-                      {cat}
-                    </button>
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
-                </div>
+                </select>
               </div>
 
-              {/* Filtro estado */}
+              {/* Filtro estado — ahora como select */}
               <div>
                 <label style={labelStyle}>Estado</label>
-                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
-                  {[
-                    { key: '',                 label: 'Todos' },
-                    { key: 'Activo',           label: '🟢 Activo' },
-                    { key: 'En mantenimiento', label: '🟡 En mant.' },
-                    { key: 'Dado de baja',     label: '🔴 Baja' },
-                  ].map(op => (
-                    <button
-                      key={op.key}
-                      onClick={() => { setFiltroEstado(op.key); setEquipoId(''); setBusqueda('') }}
-                      style={chipStyle(filtroEstado === op.key)}
-                    >
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
+                <select
+                  value={filtroEstado}
+                  onChange={e => { setFiltroEstado(e.target.value); setEquiposSeleccionados([]); setBusqueda('') }}
+                  style={inputStyle}
+                >
+                  <option value=''>Todos</option>
+                  <option value='Activo'>🟢 Activo</option>
+                  <option value='En mantenimiento'>🟡 En mantenimiento</option>
+                  <option value='Dado de baja'>🔴 Dado de baja</option>
+                </select>
               </div>
+
+              {/* Filtro laboratorio */}
+              <div style={{ position: 'relative' }}>
+                <label style={labelStyle}>Laboratorio</label>
+                <input
+                  type='text'
+                  placeholder='Buscar laboratorio...'
+                  value={busquedaLab}
+                  onChange={e => {
+                    setBusquedaLab(e.target.value)
+                    setFiltroLaboratorio('')
+                    setEquiposSeleccionados([])
+                    setBusqueda('')
+                  }}
+                  onFocus={() => setLabDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setLabDropdownOpen(false), 150)}
+                  style={inputStyle}
+                />
+                {labDropdownOpen && busquedaLab.trim().length > 0 && (() => {
+                  const labsFiltrados = laboratorios.filter(l =>
+                    l.name.toLowerCase().includes(busquedaLab.toLowerCase())
+                  )
+                  return (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                      border: '1px solid #e5e7eb', borderRadius: 8, background: 'white',
+                      maxHeight: 180, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}>
+                      {labsFiltrados.length === 0 ? (
+                        <div style={{ padding: '0.75rem 1rem', color: '#9ca3af', fontSize: '0.875rem', textAlign: 'center' }}>
+                          ⚠️ No existe ese laboratorio
+                        </div>
+                      ) : labsFiltrados.map(lab => (
+                        <div
+                          key={lab.id}
+                          onMouseDown={() => {
+                            setBusquedaLab(lab.name)
+                            setFiltroLaboratorio(lab.name)
+                          }}
+                          style={{
+                            padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '0.875rem',
+                            borderBottom: '1px solid #f3f4f6',
+                            background: filtroLaboratorio === lab.name ? '#fef2f2' : 'white',
+                            color: filtroLaboratorio === lab.name ? '#C0191F' : '#374151',
+                          }}
+                        >
+                          {lab.name}
+                          {lab.building && <span style={{ color: '#9ca3af', fontSize: '0.78rem', marginLeft: 6 }}>· {lab.building}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+
             </div>
 
             {/* Buscador */}
-            <label style={labelStyle}>Buscar equipo *</label>
+            <label style={labelStyle}>Buscar y agregar equipos *</label>
             <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
               <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>🔍</span>
               <input
                 type="text"
                 placeholder="Buscar por asset tag, marca, modelo o serie..."
                 value={busqueda}
-                onChange={e => { setBusqueda(e.target.value); setEquipoId('') }}
-                style={{ ...inputStyle, paddingLeft: '2rem' }}
+                onChange={e => setBusqueda(e.target.value)}
+                style={{ ...inputStyle, paddingLeft: '2rem', padding: '0.75rem 0.75rem 0.75rem 2rem' }}
               />
               {busqueda && (
                 <button
-                  onClick={() => { setBusqueda(''); setEquipoId('') }}
+                  onClick={() => setBusqueda('')}
                   style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem' }}
                 >✕</button>
               )}
             </div>
+
+            {/* Dropdown de resultados */}
+            {busqueda.trim().length > 0 && (() => {
+              const yaSeleccionados = new Set(equiposSeleccionados.map(e => e.id))
+              const resultados = equiposFiltrados.filter(eq => !yaSeleccionados.has(eq.id))
+              return (
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 220, overflowY: 'auto', marginBottom: '0.75rem' }}>
+                  {resultados.length === 0 ? (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
+                      No se encontraron equipos
+                    </div>
+                  ) : resultados.map(eq => (
+                    <div
+                      key={eq.id}
+                      onClick={() => {
+                        setEquiposSeleccionados(prev => [...prev, eq])
+                        setBusqueda('')
+                      }}
+                      style={{
+                        padding: '0.6rem 0.9rem', cursor: 'pointer', fontSize: '0.875rem',
+                        borderBottom: '1px solid #f3f4f6', background: 'white',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontWeight: 700 }}>{eq.assetTag}</span>
+                        <span style={{ color: '#6b7280' }}> — {eq.brand} {eq.model}</span>
+                        {eq.serialNumber && <span style={{ color: '#9ca3af', fontSize: '0.78rem' }}> · {eq.serialNumber}</span>}
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: '#C0191F', fontWeight: 600 }}>+ Agregar</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {/* Equipos seleccionados */}
+            {equiposSeleccionados.length > 0 && (
+              <div style={{ marginTop: '0.5rem' }}>
+                <label style={{ ...labelStyle, marginBottom: '0.5rem' }}>
+                  Equipos seleccionados ({equiposSeleccionados.length})
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {equiposSeleccionados.map(eq => (
+                    <div key={eq.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.5rem 0.75rem', borderRadius: 8,
+                      background: '#f0fdf4', border: '1px solid #86efac',
+                      fontSize: '0.875rem', color: '#166534'
+                    }}>
+                      <span>
+                        <strong>{eq.assetTag}</strong>
+                        <span style={{ color: '#6b7280', marginLeft: 6 }}>{eq.brand} {eq.model}</span>
+                      </span>
+                      <button
+                        onClick={() => setEquiposSeleccionados(prev => prev.filter(e => e.id !== eq.id))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontSize: '1rem', lineHeight: 1 }}
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Resultados */}
             {busqueda.trim().length > 0 && (
@@ -521,7 +647,7 @@ export default function Reportes() {
 }
 
 const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.25rem' }
-const inputStyle  = { width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.875rem', boxSizing: 'border-box', fontFamily: 'inherit' }
+const inputStyle = { width: '100%', padding: '0.65rem 0.75rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.875rem', boxSizing: 'border-box', fontFamily: 'inherit' }
 const chipStyle   = (active) => ({
   padding: '0.25rem 0.75rem', borderRadius: 20, border: 'none',
   cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
