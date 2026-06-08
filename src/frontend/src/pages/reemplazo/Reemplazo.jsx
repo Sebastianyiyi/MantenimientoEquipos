@@ -455,10 +455,13 @@ export default function Reemplazo() {
                 </div>
               </div>
 
-              {/* ── Campos obligatorios ── */}
+              {/* ── Campos del formulario ── */}
               <div className="rep-form-fields">
+
+                {/* Motivo — editable */}
                 <div className="rep-form-group">
                   <label className="rep-form-label">
+                    <span className="rep-field-icon">✏️</span>
                     Motivo del reemplazo <span className="rep-required">*</span>
                   </label>
                   <textarea
@@ -474,29 +477,33 @@ export default function Reemplazo() {
                   )}
                 </div>
 
-                <div className="rep-form-group">
-                  <label className="rep-form-label">
-                    Fecha del reemplazo <span className="rep-required">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    className={`rep-form-input ${!fechaReemplazo ? 'invalid' : ''}`}
-                    value={fechaReemplazo}
-                    max={new Date().toISOString().slice(0, 10)}
-                    onChange={e => setFechaReemplazo(e.target.value)}
-                  />
+                {/* Metadatos de solo lectura */}
+                <div className="rep-meta-row">
+                  <div className="rep-meta-item">
+                    <span className="rep-meta-icon">📅</span>
+                    <div className="rep-meta-content">
+                      <span className="rep-meta-label">Fecha del reemplazo</span>
+                      <span className="rep-meta-value">
+                        {fechaReemplazo
+                          ? new Date(fechaReemplazo + 'T00:00:00').toLocaleDateString('es-EC', {
+                              day: '2-digit', month: 'long', year: 'numeric'
+                            })
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rep-meta-divider" />
+
+                  <div className="rep-meta-item">
+                    <span className="rep-meta-icon">👤</span>
+                    <div className="rep-meta-content">
+                      <span className="rep-meta-label">Asignado por</span>
+                      <span className="rep-meta-value">{user?.name ?? user?.email ?? '—'}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="rep-form-group">
-                  <label className="rep-form-label">Asignado por</label>
-                  <input
-                    type="text"
-                    className="rep-form-input"
-                    value={user?.name ?? user?.email ?? '—'}
-                    disabled
-                    readOnly
-                  />
-                </div>
               </div>
 
               {resultMsg && !resultMsg.ok && (
