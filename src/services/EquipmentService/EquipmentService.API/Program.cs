@@ -25,6 +25,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<EquipmentCodeService>();
+builder.Services.AddHttpClient(); // para notificar a MaintenanceService en Decommission
 
 builder.Services.AddHttpClient<AuthServiceClient>(client =>
 {

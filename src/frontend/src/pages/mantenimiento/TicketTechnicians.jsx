@@ -22,9 +22,16 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState(null)
 
+  // Buscador de técnico
+  const [techSearch, setTechSearch] = useState('')
+  const [techDropdownOpen, setTechDropdownOpen] = useState(false)
+
   // Edición inline de notas de un técnico
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ activityDescription: '', observations: '' })
+
+  // Modal confirmación quitar técnico
+  const [removeConfirm, setRemoveConfirm] = useState(null) // { id, name }
 
  const isClosed = ticketStatus === 'Terminado'
 
@@ -62,6 +69,7 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
         observations: addForm.observations || null,
       })
       setAddForm({ technicianUserId: '', activityDescription: '', observations: '' })
+      setTechSearch('')
       setShowAddForm(false)
       await fetchTechnicians()
     } catch (err) {
@@ -74,10 +82,16 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
 
   // ── Quitar técnico ─────────────────────────────────────────────────────────
   const handleRemove = async (technicianId) => {
-    if (!confirm('¿Quitar este técnico del caso?')) return
+    const tech = technicians.find(t => t.id === technicianId)
+    setRemoveConfirm({ id: technicianId, name: getName(tech?.technicianUserId) })
+  }
+
+  const confirmarRemove = async () => {
+    const { id } = removeConfirm
+    setRemoveConfirm(null)
     try {
-      await maintenanceApi.delete(`/ticket-equipments/${ticketEquipmentId}/technicians/${technicianId}`)
-      setTechnicians(prev => prev.filter(t => t.id !== technicianId))
+      await maintenanceApi.delete(`/ticket-equipments/${ticketEquipmentId}/technicians/${id}`)
+      setTechnicians(prev => prev.filter(t => t.id !== id))
     } catch (err) {
       alert(err.response?.data?.message || 'Error al quitar al técnico.')
     }
@@ -132,16 +146,52 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
         <form className="tt-form" onSubmit={handleAdd}>
           <div className="tt-form-row">
             <label className="tt-label">Técnico *</label>
-            <select
-              className="tt-select"
-              value={addForm.technicianUserId}
-              onChange={e => setAddForm(f => ({ ...f, technicianUserId: e.target.value }))}
-            >
-              <option value="">Selecciona un técnico</option>
-              {availableToAdd.map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
+            <div className="tt-search-wrapper">
+              <input
+                className="tt-search-input"
+                type="text"
+                placeholder="Buscar laboratorista por nombre…"
+                value={techSearch}
+                autoComplete="off"
+                onChange={e => {
+                  setTechSearch(e.target.value)
+                  setTechDropdownOpen(true)
+                  if (!e.target.value) setAddForm(f => ({ ...f, technicianUserId: '' }))
+                }}
+                onFocus={() => setTechDropdownOpen(true)}
+                onBlur={() => setTimeout(() => setTechDropdownOpen(false), 150)}
+              />
+              {techDropdownOpen && techSearch.trim() && (() => {
+                const filtered = availableToAdd.filter(t =>
+                  t.name.toLowerCase().includes(techSearch.toLowerCase())
+                )
+                return filtered.length > 0 ? (
+                  <ul className="tt-dropdown">
+                    {filtered.map(t => (
+                      <li
+                        key={t.id}
+                        className="tt-dropdown-item"
+                        onMouseDown={() => {
+                          setAddForm(f => ({ ...f, technicianUserId: t.id }))
+                          setTechSearch(t.name)
+                          setTechDropdownOpen(false)
+                        }}
+                      >
+                        <span className="tt-dropdown-avatar">{t.name.charAt(0).toUpperCase()}</span>
+                        {t.name}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <ul className="tt-dropdown">
+                    <li className="tt-dropdown-empty">Sin resultados para "{techSearch}"</li>
+                  </ul>
+                )
+              })()}
+              {addForm.technicianUserId && (
+                <span className="tt-selected-badge">✓ Seleccionado</span>
+              )}
+            </div>
           </div>
 
           <div className="tt-form-row">
@@ -247,6 +297,52 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
         </ul>
       )}
 
+      {/* ── Modal confirmar quitar técnico ── */}
+      {removeConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 14, padding: '1.75rem',
+            maxWidth: 400, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.18)',
+            animation: 'tt-modal-in 0.18s ease',
+          }}>
+            <div style={{
+              width: 46, height: 46, borderRadius: '50%', background: '#fff7ed',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.35rem', margin: '0 auto 0.85rem',
+            }}>👤</div>
+            <h3 style={{ margin: '0 0 0.4rem', fontSize: '1rem', fontWeight: 700, textAlign: 'center', color: '#111827' }}>
+              ¿Quitar técnico del caso?
+            </h3>
+            <p style={{ margin: '0 0 1.25rem', fontSize: '0.85rem', color: '#6b7280', textAlign: 'center', lineHeight: 1.5 }}>
+              Se quitará a <strong style={{ color: '#111827' }}>{removeConfirm.name}</strong> de este equipo. Podrás volver a asignarlo si es necesario.
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                onClick={() => setRemoveConfirm(null)}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: 8,
+                  border: '1px solid #e5e7eb', background: '#fff',
+                  color: '#374151', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                }}
+              >Cancelar</button>
+              <button
+                onClick={confirmarRemove}
+                style={{
+                  flex: 1, padding: '0.6rem', borderRadius: 8,
+                  border: 'none', background: '#dc2626',
+                  color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer',
+                }}
+              >Sí, quitar</button>
+            </div>
+          </div>
+          <style>{`@keyframes tt-modal-in { from { opacity:0; transform:scale(.93) } to { opacity:1; transform:scale(1) } }`}</style>
+        </div>
+      )}
+
       <style>{`
         .tt-container { font-family: inherit; }
         .tt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
@@ -278,6 +374,15 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
         .tt-btn-sm { padding: 4px 10px; border: none; border-radius: 5px; font-size: .78rem; cursor: pointer; font-weight: 500; }
         .tt-btn-danger { background: #fee2e2; color: #dc2626; }
         .tt-btn-danger:hover { background: #fecaca; }
+        .tt-search-wrapper { position: relative; }
+        .tt-search-input { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: .875rem; font-family: inherit; box-sizing: border-box; background: white; outline: none; }
+        .tt-search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+        .tt-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 100; margin: 0; padding: 4px; list-style: none; max-height: 200px; overflow-y: auto; }
+        .tt-dropdown-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: .875rem; color: #0f172a; transition: background .12s; }
+        .tt-dropdown-item:hover { background: #eff6ff; color: #1d4ed8; }
+        .tt-dropdown-avatar { width: 26px; height: 26px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; flex-shrink: 0; }
+        .tt-dropdown-empty { padding: 10px; font-size: .82rem; color: #94a3b8; font-style: italic; text-align: center; }
+        .tt-selected-badge { display: inline-block; margin-top: 5px; font-size: .75rem; color: #166534; font-weight: 600; }
       `}</style>
     </div>
   )

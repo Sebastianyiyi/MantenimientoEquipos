@@ -13,15 +13,18 @@ public class EquipmentsController : ControllerBase
     private readonly EquipmentDbContext _context;
     private readonly EquipmentCodeService _codeService;
     private readonly AuthServiceClient _authServiceClient;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public EquipmentsController(
         EquipmentDbContext context,
         EquipmentCodeService codeService,
-        AuthServiceClient authServiceClient)
+        AuthServiceClient authServiceClient,
+        IHttpClientFactory httpClientFactory)
     {
         _context = context;
         _codeService = codeService;
         _authServiceClient = authServiceClient;
+        _httpClientFactory = httpClientFactory;
     }
 
     [HttpGet]
@@ -62,6 +65,8 @@ public class EquipmentsController : ControllerBase
                 e.UpdatedAt,
                 e.LaboratoristaUserId,
                 e.LaboratoristaNombre,
+                e.BajaMotivo,
+                e.BajaAt,
                 EquipmentType = new
                 {
                     e.EquipmentType.Id,
@@ -100,6 +105,8 @@ public class EquipmentsController : ControllerBase
             equipment.UpdatedAt,
             equipment.LaboratoristaUserId,
             equipment.LaboratoristaNombre,
+            equipment.BajaMotivo,
+            equipment.BajaAt,
             EquipmentType = new
             {
                 equipment.EquipmentType.Id,
@@ -280,6 +287,46 @@ public class EquipmentsController : ControllerBase
         return Ok(new { message = "Estado actualizado correctamente.", equipment.Status });
     }
 
+    [HttpPatch("{id:guid}/decommission")]
+    public async Task<IActionResult> Decommission(Guid id, [FromBody] DecommissionDto dto)
+    {
+        var equipment = await _context.Equipments.FindAsync(id);
+        if (equipment == null || !equipment.IsActive)
+            return NotFound(new { message = "Equipo no encontrado." });
+
+        if (string.IsNullOrWhiteSpace(dto.Motivo))
+            return BadRequest(new { message = "Debe indicar el motivo de la baja." });
+
+        var previousStatus = equipment.Status;
+
+        equipment.Status = "Dado de baja";
+        equipment.BajaMotivo = dto.Motivo.Trim();
+        equipment.BajaAt = DateTime.Now;
+        equipment.UpdatedAt = DateTime.Now;
+
+        await _context.SaveChangesAsync();
+
+        // Notificar a MaintenanceService para registrar el evento en el historial del equipo
+        try
+        {
+            var client = _httpClientFactory.CreateClient();
+            await client.PostAsJsonAsync(
+                $"http://localhost:5004/api/equipments/{id}/baja-history",
+                new
+                {
+                    previousStatus,
+                    newStatus    = "Dado de baja",
+                    comment      = dto.Motivo.Trim(),
+                    changedByUserId = dto.CambiadoPorUserId,
+                    changedAt    = equipment.BajaAt
+                }
+            );
+        }
+        catch { /* silencioso — no bloquear la baja si Maintenance no responde */ }
+
+        return Ok(new { message = "Equipo dado de baja correctamente.", equipment.Status, equipment.BajaMotivo, equipment.BajaAt });
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
@@ -399,6 +446,12 @@ public class UpdateEquipmentDto
 public class UpdateStatusDto
 {
     public string Status { get; set; } = null!;
+}
+
+public class DecommissionDto
+{
+    public string Motivo { get; set; } = null!;
+    public Guid? CambiadoPorUserId { get; set; }
 }
 
 public class AssignLaboratoristaDto
