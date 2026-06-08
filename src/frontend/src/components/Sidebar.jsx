@@ -9,6 +9,7 @@ const navItems = [
   { to: '/casos', icon: 'clipboard-list', label: 'Casos de Mantenimiento', roles: null },
   { to: '/catalogos', icon: 'list', label: 'Catálogos del Sistema', roles: ['Administrador'] },
   { to: '/usuarios', icon: 'users', label: 'Gestión de Usuarios', roles: ['Administrador'] },
+  { to: '/reportes', icon: 'file-text', label: 'Reportes', roles: ['Administrador'] },
 ]
 
 export default function Sidebar() {

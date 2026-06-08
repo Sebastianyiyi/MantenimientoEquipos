@@ -8,14 +8,17 @@ const HOY = new Date().toISOString().split('T')[0]
 const HACE_30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
 export default function Reportes() {
-  const [equipments, setEquipments]   = useState([])
-  const [tab, setTab]                 = useState('estadisticas') // 'estadisticas' | 'hojavida'
-  const [formato, setFormato]         = useState('pdf')          // 'pdf' | 'excel'
-  const [desde, setDesde]             = useState(HACE_30)
-  const [hasta, setHasta]             = useState(HOY)
-  const [equipoId, setEquipoId]       = useState('')
-  const [generando, setGenerando]     = useState(false)
-  const [error, setError]             = useState('')
+  const [equipments, setEquipments]               = useState([])
+  const [tab, setTab]                             = useState('estadisticas')
+  const [formato, setFormato]                     = useState('pdf')
+  const [desde, setDesde]                         = useState(HACE_30)
+  const [hasta, setHasta]                         = useState(HOY)
+  const [equipoId, setEquipoId]                   = useState('')
+  const [generando, setGenerando]                 = useState(false)
+  const [error, setError]                         = useState('')
+  const [busqueda, setBusqueda]                   = useState('')
+  const [filtroCategoria, setFiltroCategoria]     = useState('')
+  const [filtroEstado, setFiltroEstado]           = useState('')
 
   useEffect(() => {
     equipmentApi.get('/equipments')
@@ -25,15 +28,12 @@ export default function Reportes() {
 
   const formatDate = (d) => d ? new Date(d).toLocaleDateString('es-EC') : '—'
 
-  // ── GENERAR PDF ESTADÍSTICAS ──────────────────────────────────────────────
   const generarPdfEstadisticas = async () => {
     const res = await maintenanceApi.get(`/reportes/estadisticas?desde=${desde}&hasta=${hasta}`)
     const d = res.data
-
     const doc = new jsPDF()
     const rojo = [192, 25, 31]
 
-    // Encabezado
     doc.setFillColor(...rojo)
     doc.rect(0, 0, 210, 28, 'F')
     doc.setTextColor(255, 255, 255)
@@ -44,11 +44,9 @@ export default function Reportes() {
     doc.setFont('helvetica', 'normal')
     doc.text('Sistema de Mantenimiento de Equipos Tecnológicos — FISEI', 105, 17, { align: 'center' })
     doc.text(`Reporte de Estadísticas: ${formatDate(desde)} al ${formatDate(hasta)}`, 105, 23, { align: 'center' })
-
     doc.setTextColor(0, 0, 0)
     let y = 36
 
-    // Resumen
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.text('Resumen General', 14, y); y += 6
@@ -67,7 +65,6 @@ export default function Reportes() {
     })
     y = doc.lastAutoTable.finalY + 8
 
-    // Por tipo
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
     doc.text('Casos por Tipo de Mantenimiento', 14, y); y += 4
@@ -81,12 +78,10 @@ export default function Reportes() {
     })
     y = doc.lastAutoTable.finalY + 8
 
-    // Recursos más usados
     if (d.recursosMasUsados?.length > 0) {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       doc.text('Recursos Más Utilizados', 14, y); y += 4
-
       autoTable(doc, {
         startY: y,
         head: [['Recurso', 'Cantidad Total']],
@@ -94,10 +89,8 @@ export default function Reportes() {
         headStyles: { fillColor: rojo },
         margin: { left: 14, right: 14 },
       })
-      y = doc.lastAutoTable.finalY + 8
     }
 
-    // Pie de página
     const total = doc.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       doc.setPage(i)
@@ -105,22 +98,17 @@ export default function Reportes() {
       doc.setTextColor(150)
       doc.text(`Generado el ${formatDate(new Date())} — Página ${i} de ${total}`, 105, 290, { align: 'center' })
     }
-
     doc.save(`Estadisticas_${desde}_${hasta}.pdf`)
   }
 
-  // ── GENERAR PDF HOJA DE VIDA ──────────────────────────────────────────────
   const generarPdfHojaVida = async () => {
     if (!equipoId) { setError('Selecciona un equipo.'); return }
-
     const equipo = equipments.find(e => e.id === equipoId)
     const res = await maintenanceApi.get(`/reportes/hoja-vida/${equipoId}`)
     const d = res.data
-
     const doc = new jsPDF()
     const rojo = [192, 25, 31]
 
-    // Encabezado
     doc.setFillColor(...rojo)
     doc.rect(0, 0, 210, 28, 'F')
     doc.setTextColor(255, 255, 255)
@@ -131,11 +119,9 @@ export default function Reportes() {
     doc.setFont('helvetica', 'normal')
     doc.text('Sistema de Mantenimiento de Equipos Tecnológicos — FISEI', 105, 17, { align: 'center' })
     doc.text(`Hoja de Vida: ${equipo?.assetTag ?? equipoId}`, 105, 23, { align: 'center' })
-
     doc.setTextColor(0, 0, 0)
     let y = 36
 
-    // Info del equipo
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.text('Datos del Equipo', 14, y); y += 6
@@ -158,10 +144,8 @@ export default function Reportes() {
     })
     y = doc.lastAutoTable.finalY + 8
 
-    // Historial de casos
     for (const caso of d.historia ?? []) {
       if (y > 240) { doc.addPage(); y = 20 }
-
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(11)
       doc.setTextColor(...rojo)
@@ -188,7 +172,7 @@ export default function Reportes() {
         autoTable(doc, {
           startY: y,
           head: [['Diagnósticos', 'Severidad', 'Fecha']],
-          body: caso.diagnosticos.map(d => [d.nombre, d.severidad, formatDate(d.addedAt)]),
+          body: caso.diagnosticos.map(diag => [diag.nombre, diag.severidad, formatDate(diag.addedAt)]),
           headStyles: { fillColor: [75, 85, 99] },
           margin: { left: 14, right: 14 },
           styles: { fontSize: 8 },
@@ -209,7 +193,6 @@ export default function Reportes() {
       }
     }
 
-    // Pie
     const total = doc.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       doc.setPage(i)
@@ -217,19 +200,15 @@ export default function Reportes() {
       doc.setTextColor(150)
       doc.text(`Generado el ${formatDate(new Date())} — Página ${i} de ${total}`, 105, 290, { align: 'center' })
     }
-
     doc.save(`HojaDeVida_${equipo?.assetTag ?? equipoId}.pdf`)
   }
 
-  // ── GENERAR EXCEL ESTADÍSTICAS ────────────────────────────────────────────
   const generarExcelEstadisticas = async () => {
     const res = await maintenanceApi.get(`/reportes/estadisticas?desde=${desde}&hasta=${hasta}`)
     const d = res.data
-
     const wb = XLSX.utils.book_new()
 
-    // Hoja 1: Resumen
-    const resumen = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['SISTEMA DE MANTENIMIENTO - FISEI UTA'],
       [`Estadísticas del ${formatDate(desde)} al ${formatDate(hasta)}`],
       [],
@@ -238,38 +217,29 @@ export default function Reportes() {
       ['Casos Pendientes', d.casosPorEstado?.find(e => e.estado === 'Pendiente')?.total ?? 0],
       ['Casos En Proceso', d.casosPorEstado?.find(e => e.estado === 'En Proceso')?.total ?? 0],
       ['Casos Terminados', d.casosPorEstado?.find(e => e.estado === 'Terminado')?.total ?? 0],
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), 'Resumen')
+    ]), 'Resumen')
 
-    // Hoja 2: Por tipo
-    const tipoData = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['Tipo de Mantenimiento', 'Total'],
       ...(d.casosPorTipo ?? []).map(t => [t.tipo, t.total])
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(tipoData), 'Por Tipo')
+    ]), 'Por Tipo')
 
-    // Hoja 3: Recursos más usados
-    const recursosData = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['Recurso', 'Cantidad Total'],
       ...(d.recursosMasUsados ?? []).map(r => [r.recurso, r.totalUsado])
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(recursosData), 'Recursos')
+    ]), 'Recursos')
 
     XLSX.writeFile(wb, `Estadisticas_${desde}_${hasta}.xlsx`)
   }
 
-  // ── GENERAR EXCEL HOJA DE VIDA ────────────────────────────────────────────
   const generarExcelHojaVida = async () => {
     if (!equipoId) { setError('Selecciona un equipo.'); return }
-
     const equipo = equipments.find(e => e.id === equipoId)
     const res = await maintenanceApi.get(`/reportes/hoja-vida/${equipoId}`)
     const d = res.data
-
     const wb = XLSX.utils.book_new()
 
-    // Hoja 1: Resumen del equipo
-    const resumen = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['HOJA DE VIDA DEL EQUIPO — FISEI UTA'],
       [],
       ['Asset Tag', equipo?.assetTag ?? '—'],
@@ -280,42 +250,34 @@ export default function Reportes() {
       ['Total de actividades', d.totalActividades],
       ['Total de recursos', d.totalRecursos],
       ['Último mantenimiento', formatDate(d.ultimoMantenimiento)],
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), 'Resumen')
+    ]), 'Resumen')
 
-    // Hoja 2: Detalle de casos
-    const casosData = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['Código', 'Título', 'Tipo', 'Estado', 'Prioridad', 'Fecha Inicio', 'Fecha Cierre'],
       ...(d.historia ?? []).map(c => [
         c.ticketNumber, c.title, c.maintenanceType,
         c.ticketStatus, c.priority,
         formatDate(c.fechaInicio), formatDate(c.fechaCierre)
       ])
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(casosData), 'Casos')
+    ]), 'Casos')
 
-    // Hoja 3: Actividades
-    const actData = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['Caso', 'Actividad', 'Categoría', 'Fecha'],
       ...(d.historia ?? []).flatMap(c =>
         (c.actividades ?? []).map(a => [c.ticketNumber, a.nombre, a.categoria, formatDate(a.addedAt)])
       )
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(actData), 'Actividades')
+    ]), 'Actividades')
 
-    // Hoja 4: Recursos
-    const recData = [
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
       ['Caso', 'Recurso', 'Descripción', 'Cantidad'],
       ...(d.historia ?? []).flatMap(c =>
         (c.recursos ?? []).map(r => [c.ticketNumber, r.name, r.description ?? '—', r.quantity])
       )
-    ]
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(recData), 'Recursos')
+    ]), 'Recursos')
 
     XLSX.writeFile(wb, `HojaDeVida_${equipo?.assetTag ?? equipoId}.xlsx`)
   }
 
-  // ── HANDLER PRINCIPAL ─────────────────────────────────────────────────────
   const handleGenerar = async () => {
     setError('')
     setGenerando(true)
@@ -333,6 +295,20 @@ export default function Reportes() {
     }
   }
 
+  const categorias = [...new Set(equipments.map(e => e.equipmentType?.name).filter(Boolean))].sort()
+
+  const equiposFiltrados = equipments.filter(eq => {
+    const matchCat = !filtroCategoria || eq.equipmentType?.name === filtroCategoria
+    const matchEstado = !filtroEstado    || eq.status === filtroEstado
+    const q = busqueda.toLowerCase()
+    const matchBusqueda = !q ||
+      eq.assetTag?.toLowerCase().includes(q) ||
+      eq.brand?.toLowerCase().includes(q) ||
+      eq.model?.toLowerCase().includes(q) ||
+      eq.serialNumber?.toLowerCase().includes(q)
+    return matchCat && matchEstado && matchBusqueda
+  })
+
   return (
     <div style={{ padding: '2rem', maxWidth: 700 }}>
       <div style={{ marginBottom: '1.5rem' }}>
@@ -348,7 +324,10 @@ export default function Reportes() {
           { key: 'estadisticas', label: '📊 Estadísticas del sistema' },
           { key: 'hojavida',     label: '📋 Hoja de vida de equipo' },
         ].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
+          <button key={t.key} onClick={() => {
+            setTab(t.key)
+            setEquipoId(''); setBusqueda(''); setFiltroCategoria(''); setFiltroEstado('')
+          }} style={{
             padding: '0.5rem 1.25rem', borderRadius: 8, border: 'none',
             cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem',
             background: tab === t.key ? '#C0191F' : '#f3f4f6',
@@ -360,7 +339,6 @@ export default function Reportes() {
         ))}
       </div>
 
-      {/* Formulario */}
       <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: 12, padding: '1.5rem' }}>
 
         {/* Formato */}
@@ -384,26 +362,126 @@ export default function Reportes() {
           </div>
         </div>
 
-        {/* Si es hoja de vida: selector de equipo */}
+        {/* Hoja de vida: filtros + buscador */}
         {tab === 'hojavida' && (
           <div style={{ marginBottom: '1.25rem' }}>
-            <label style={labelStyle}>Equipo *</label>
-            <select
-              value={equipoId}
-              onChange={e => setEquipoId(e.target.value)}
-              style={inputStyle}
-            >
-              <option value="">Selecciona un equipo...</option>
-              {equipments.map(eq => (
-                <option key={eq.id} value={eq.id}>
-                  {eq.assetTag} — {eq.brand} {eq.model}
-                </option>
-              ))}
-            </select>
+
+            {/* Filtros en fila */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+
+              {/* Filtro categoría */}
+              <div>
+                <label style={labelStyle}>Categoría</label>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                  <button
+                    onClick={() => { setFiltroCategoria(''); setEquipoId(''); setBusqueda('') }}
+                    style={chipStyle(filtroCategoria === '')}
+                  >
+                    Todas
+                  </button>
+                  {categorias.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => { setFiltroCategoria(cat); setEquipoId(''); setBusqueda('') }}
+                      style={chipStyle(filtroCategoria === cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filtro estado */}
+              <div>
+                <label style={labelStyle}>Estado</label>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                  {[
+                    { key: '',                 label: 'Todos' },
+                    { key: 'Activo',           label: '🟢 Activo' },
+                    { key: 'En mantenimiento', label: '🟡 En mant.' },
+                    { key: 'Dado de baja',     label: '🔴 Baja' },
+                  ].map(op => (
+                    <button
+                      key={op.key}
+                      onClick={() => { setFiltroEstado(op.key); setEquipoId(''); setBusqueda('') }}
+                      style={chipStyle(filtroEstado === op.key)}
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Buscador */}
+            <label style={labelStyle}>Buscar equipo *</label>
+            <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Buscar por asset tag, marca, modelo o serie..."
+                value={busqueda}
+                onChange={e => { setBusqueda(e.target.value); setEquipoId('') }}
+                style={{ ...inputStyle, paddingLeft: '2rem' }}
+              />
+              {busqueda && (
+                <button
+                  onClick={() => { setBusqueda(''); setEquipoId('') }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '1rem' }}
+                >✕</button>
+              )}
+            </div>
+
+            {/* Resultados */}
+            {busqueda.trim().length > 0 && (
+              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 220, overflowY: 'auto' }}>
+                {equiposFiltrados.length === 0 ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
+                    No se encontraron equipos
+                  </div>
+                ) : equiposFiltrados.map(eq => (
+                  <div
+                    key={eq.id}
+                    onClick={() => { setEquipoId(eq.id); setBusqueda(`${eq.assetTag} — ${eq.brand} ${eq.model}`) }}
+                    style={{
+                      padding: '0.6rem 0.9rem', cursor: 'pointer', fontSize: '0.875rem',
+                      borderBottom: '1px solid #f3f4f6',
+                      background: equipoId === eq.id ? '#fef2f2' : 'white',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 700 }}>{eq.assetTag}</span>
+                      <span style={{ color: '#6b7280' }}> — {eq.brand} {eq.model}</span>
+                      {eq.serialNumber && <span style={{ color: '#9ca3af', fontSize: '0.78rem' }}> · {eq.serialNumber}</span>}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: 10, background: '#f3f4f6', color: '#6b7280' }}>
+                        {eq.equipmentType?.name ?? 'Sin tipo'}
+                      </span>
+                      <span style={{
+                        fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: 10,
+                        background: eq.status === 'Activo' ? '#dcfce7' : eq.status === 'En mantenimiento' ? '#fef9c3' : '#fee2e2',
+                        color:      eq.status === 'Activo' ? '#166534' : eq.status === 'En mantenimiento' ? '#854d0e' : '#991b1b',
+                      }}>
+                        {eq.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Equipo seleccionado */}
+            {equipoId && (
+              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', fontSize: '0.875rem', color: '#166534', fontWeight: 600 }}>
+                ✓ Equipo seleccionado
+              </div>
+            )}
           </div>
         )}
 
-        {/* Si es estadísticas: rango de fechas */}
+        {/* Estadísticas: rango de fechas */}
         {tab === 'estadisticas' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
             <div>
@@ -423,7 +501,6 @@ export default function Reportes() {
           </div>
         )}
 
-        {/* Botón generar */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             onClick={handleGenerar}
@@ -445,3 +522,9 @@ export default function Reportes() {
 
 const labelStyle = { display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.25rem' }
 const inputStyle  = { width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: 8, fontSize: '0.875rem', boxSizing: 'border-box', fontFamily: 'inherit' }
+const chipStyle   = (active) => ({
+  padding: '0.25rem 0.75rem', borderRadius: 20, border: 'none',
+  cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+  background: active ? '#C0191F' : '#f3f4f6',
+  color: active ? 'white' : '#374151',
+})
