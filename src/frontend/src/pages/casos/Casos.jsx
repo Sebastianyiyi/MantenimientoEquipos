@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
-import TicketTechnicians from '../mantenimiento/TicketTechnicians'
-import TicketResources from '../mantenimiento/TicketResources'
-import TicketActivitiesDiagnoses from '../mantenimiento/TicketActivitiesDiagnoses'
+import { maintenanceApi, equipmentApi } from '../../services/api'
+import { useNavigate } from 'react-router-dom'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
@@ -27,17 +25,12 @@ const PRIORITY_COLORS = {
   Baja:  { bg: '#f0fdf4', color: '#166534' },
 }
 
-const nextStatus = {
-  'Pendiente':  'En Proceso',
-  'En Proceso': 'Terminado',
-}
-
 export default function Casos() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [tickets, setTickets]       = useState([])
   const [equipments, setEquipments] = useState([])
-  const [usuarios, setUsuarios]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState('')
   const [search, setSearch]         = useState('')
@@ -46,12 +39,7 @@ export default function Casos() {
   const [previewCode, setPreviewCode] = useState('')
 
   const [showForm, setShowForm]           = useState(false)
-  const [showDetail, setShowDetail]       = useState(null)
-  const [showHistory, setShowHistory]     = useState(false)
-  const [history, setHistory]             = useState([])
-  const [loadingHistory, setLoadingHistory] = useState(false)
   const [saving, setSaving]               = useState(false)
-  const [changingStatus, setChangingStatus] = useState(false)
   const [editingTicket, setEditingTicket] = useState(null)
   const [lastCreatedCode, setLastCreatedCode] = useState(null)
 
@@ -71,13 +59,6 @@ export default function Casos() {
       if (eqRes.status !== 'fulfilled') throw eqRes.reason
       setTickets(ticketsRes.value.data)
       setEquipments(eqRes.value.data)
-
-      try {
-        const usersRes = await userApi.get('/users')
-        setUsuarios(usersRes.data)
-      } catch {
-        // silencioso, no todos los roles pueden ver usuarios
-      }
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar los casos.')
     } finally {
@@ -86,18 +67,6 @@ export default function Casos() {
   }, [])
 
   useEffect(() => { load() }, [load])
-
-  const loadHistory = async (ticketId) => {
-    try {
-      setLoadingHistory(true)
-      const res = await maintenanceApi.get(`/tickets/${ticketId}/status-history`)
-      setHistory(res.data)
-    } catch {
-      setHistory([])
-    } finally {
-      setLoadingHistory(false)
-    }
-  }
 
   const getCaseNumberValue = (ticketNumber) => {
     if (!ticketNumber) return 0
@@ -157,17 +126,6 @@ export default function Casos() {
     setShowForm(true)
   }
 
-  const openDetail = async (ticket) => {
-    setHistory([])
-    setShowHistory(false)
-    try {
-      const res = await maintenanceApi.get(`/tickets/${ticket.id}`)
-      setShowDetail(res.data)
-    } catch {
-      setShowDetail(ticket)
-    }
-  }
-
   const toggleEquipment = (id) => {
     setForm(prev => ({
       ...prev,
@@ -217,70 +175,6 @@ export default function Casos() {
     }
   }
 
-  const handleEquipmentStatusChange = async (teId, newStatus, ticketId) => {
-    setChangingStatus(true)
-    try {
-      await maintenanceApi.put(`/ticket-equipments/${teId}/status`, {
-        newStatus,
-        comment: '',
-        changedByUserId: user?.id,
-      })
-      setShowDetail(prev => ({
-        ...prev,
-        ticketEquipments: prev.ticketEquipments.map(te =>
-          te.id === teId ? { ...te, status: newStatus } : te
-        )
-      }))
-      if (showHistory) await loadHistory(ticketId)
-      await load()
-    } catch (err) {
-      alert(err.response?.data ?? 'Error al cambiar el estado del equipo.')
-    } finally {
-      setChangingStatus(false)
-    }
-  }
-
-  const handleTicketStatusChange = async (ticketId, newStatus) => {
-    setChangingStatus(true)
-    try {
-      await maintenanceApi.put(`/tickets/${ticketId}/status`, {
-        newStatus,
-        comment: '',
-        changedByUserId: user?.id,
-      })
-      setShowDetail(prev => ({
-        ...prev,
-        status: newStatus,
-        closedAt: newStatus === 'Terminado' ? new Date().toISOString() : prev.closedAt
-      }))
-      if (showHistory) await loadHistory(ticketId)
-      await load()
-    } catch (err) {
-      alert(err.response?.data ?? 'Error al cambiar el estado del caso.')
-    } finally {
-      setChangingStatus(false)
-    }
-  }
-
-  const getEquipmentLabel = (equipmentId) => {
-    if (!equipmentId) return '(sin equipo)'
-    const eq = equipments.find(e => (e.id ?? e.Id) === equipmentId)
-    if (!eq) return String(equipmentId).slice(0, 8) + '…'
-    const tag   = eq.assetTag ?? eq.AssetTag ?? ''
-    const brand = eq.brand    ?? eq.Brand    ?? ''
-    const model = eq.model    ?? eq.Model    ?? ''
-    return `${tag} – ${brand} ${model}`.trim()
-  }
-
-  const getUserName = (userId) => {
-    if (!userId || userId === '00000000-0000-0000-0000-000000000000')
-      return 'Desconocido'
-    if (user?.id && userId === user.id)
-      return user.fullName ?? user.FullName ?? 'Yo'
-    const found = usuarios.find(u => u.id === userId)
-    return found ? found.fullName : `Usuario (${userId.substring(0, 8)}...)`
-  }
-
   // El backend guarda con DateTime.Now (hora local del servidor, Ecuador).
   // La fecha llega SIN indicador de zona, ej: "2026-05-25T22:33:00".
   // Si le agregamos 'Z', JS lo interpreta como UTC y lo convierte a Ecuador (UTC-5),
@@ -308,7 +202,7 @@ export default function Casos() {
           <h1 style={{ margin: 0 }}>Casos de Mantenimiento</h1>
           <p style={{ margin: 0, color: '#888' }}>Registro y seguimiento de órdenes de trabajo</p>
         </div>
-        <button className="btn-primary" onClick={openNew}>+ Nuevo Caso</button>
+        <button className="btn-primary" onClick={() => navigate('/casos/nuevo')}>+ Nuevo Caso</button>
       </div>
 
       {error && (
@@ -375,13 +269,13 @@ export default function Casos() {
                   <td style={td}>{formatDate(ticket.createdAt)}</td>
                   <td style={tdCenter}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.4rem' }}>
-                      <button onClick={() => openDetail(ticket)} title="Ver detalle" style={iconBtn}>
+                      <button onClick={() => navigate(`/casos/${ticket.id}/detalle`)} title="Ver detalle" style={iconBtn}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
                         </svg>
                       </button>
                       {ticket.status !== 'Terminado' && (
-                        <button onClick={() => openEdit(ticket)} title="Editar" style={iconBtn}>
+                        <button onClick={() => navigate(`/casos/${ticket.id}/editar`)} title="Editar" style={iconBtn}>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
                           </svg>
@@ -505,268 +399,6 @@ export default function Casos() {
         </div>
       )}
 
-      {/* ── MODAL DETALLE ── */}
-      {showDetail && (
-        <div style={overlay}>
-          <div style={{ ...modal, maxWidth: 680 }}>
-
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
-              <div>
-                <h3 style={{ margin: 0 }}>Detalle del Caso</h3>
-                <code style={{ color: '#2563eb', fontWeight: 700, fontSize: '1rem' }}>{showDetail.ticketNumber}</code>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                {showDetail.status !== 'Terminado' && (
-                  <button className="btn-secondary" onClick={() => { const t = showDetail; setShowDetail(null); openEdit(t) }}>
-                    Editar
-                  </button>
-                )}
-                <button onClick={() => setShowDetail(null)} style={closeBtn}>✕</button>
-              </div>
-            </div>
-
-            {/* Info general */}
-            <div style={grid2}>
-              <Info label="Título" value={showDetail.title} />
-              <Info label="Estado general">
-                <Badge colors={STATUS_COLORS[showDetail.status]}>{showDetail.status}</Badge>
-              </Info>
-              <Info label="Tipo">
-                <Badge colors={TYPE_COLORS[showDetail.maintenanceType]}>{showDetail.maintenanceType}</Badge>
-              </Info>
-              <Info label="Prioridad">
-                <Badge colors={PRIORITY_COLORS[showDetail.priority]}>{showDetail.priority}</Badge>
-              </Info>
-              <Info label="Creado el" value={formatDate(showDetail.createdAt)} />
-              {showDetail.closedAt && <Info label="Cerrado el" value={formatDate(showDetail.closedAt)} />}
-            </div>
-
-            {showDetail.description && (
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.75rem', color: '#888', display: 'block', marginBottom: 4 }}>Descripción</span>
-                <p style={{ margin: 0, lineHeight: 1.6, color: '#374151' }}>{showDetail.description}</p>
-              </div>
-            )}
-
-            <hr style={{ margin: '0.75rem 0', borderColor: '#f0f0f0' }} />
-
-            {/* ── HU-12: Estado por equipo ── */}
-            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
-              Control de Estado por Equipo
-            </p>
-
-            {showDetail.ticketEquipments?.length > 0 ? (
-              showDetail.ticketEquipments.map(te => (
-                <div key={te.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '0.6rem 0.9rem', borderRadius: 8,
-                  background: '#f9fafb', border: '1px solid #e5e7eb',
-                  marginBottom: '0.5rem'
-                }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500, flex: 1 }}>
-                    {getEquipmentLabel(te.equipmentId)}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <Badge colors={STATUS_COLORS[te.status]}>{te.status}</Badge>
-                    {te.status !== 'Terminado' && showDetail.status !== 'Terminado' && (
-                      <button
-                        disabled={changingStatus}
-                        onClick={() => handleEquipmentStatusChange(te.id, nextStatus[te.status], showDetail.id)}
-                        style={{
-                          padding: '0.3rem 0.75rem', borderRadius: 6,
-                          border: '1px solid #3b82f6', background: '#eff6ff',
-                          color: '#1d4ed8', fontSize: '0.8rem', fontWeight: 600,
-                          cursor: changingStatus ? 'not-allowed' : 'pointer',
-                          opacity: changingStatus ? 0.6 : 1,
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        → {nextStatus[te.status]}
-                      </button>
-                    )}
-                    {te.status === 'Terminado' && (
-                      <span style={{ fontSize: '0.78rem', color: '#166534' }}>✔ Completado</span>
-                    )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
-            )}
-
-            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
-
-            {/* ── HU-09: Técnicos por equipo ── */}
-            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
-              Técnicos Asignados
-            </p>
-
-            {showDetail.ticketEquipments?.length > 0 ? (
-              showDetail.ticketEquipments.map(te => (
-                <div key={`tech-${te.id}`} style={{ marginBottom: '1rem' }}>
-                  <p style={{
-                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
-                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
-                  }}>
-                    {getEquipmentLabel(te.equipmentId)}
-                  </p>
-                  <TicketTechnicians
-                    ticketEquipmentId={te.id}
-                    ticketStatus={showDetail.status}
-                    availableTechnicians={usuarios.map(u => ({ id: u.id, name: u.fullName }))}
-                  />
-                </div>
-              ))
-            ) : (
-              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
-            )}
-
-            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
-
-            {/* ── HU-10: Actividades y Diagnósticos por equipo ── */}
-            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
-              Actividades y Diagnósticos
-            </p>
-
-            {showDetail.ticketEquipments?.length > 0 ? (
-              showDetail.ticketEquipments.map(te => (
-                <div key={`actdiag-${te.id}`} style={{ marginBottom: '1rem' }}>
-                  <p style={{
-                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
-                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
-                  }}>
-                    {getEquipmentLabel(te.equipmentId)}
-                  </p>
-                  <TicketActivitiesDiagnoses
-                    ticketEquipmentId={te.id}
-                    ticketStatus={showDetail.status}
-                  />
-                </div>
-              ))
-            ) : (
-              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
-            )}
-
-            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
-
-            {/* ── HU-11: Recursos por equipo ── */}
-            <p style={{ fontWeight: 700, margin: '0 0 0.75rem', fontSize: '0.95rem' }}>
-              Recursos Utilizados
-            </p>
-
-            {showDetail.ticketEquipments?.length > 0 ? (
-              showDetail.ticketEquipments.map(te => (
-                <div key={`res-${te.id}`} style={{ marginBottom: '1rem' }}>
-                  <p style={{
-                    fontWeight: 600, fontSize: '0.82rem', color: '#6b7280',
-                    margin: '0 0 0.4rem', textTransform: 'uppercase', letterSpacing: '0.03em'
-                  }}>
-                    {getEquipmentLabel(te.equipmentId)}
-                  </p>
-                  <TicketResources
-                    ticketEquipmentId={te.id}
-                    ticketStatus={showDetail.status}
-                  />
-                </div>
-              ))
-            ) : (
-              <p style={{ color: '#888', fontSize: '0.875rem' }}>No hay equipos en este caso.</p>
-            )}
-
-            <hr style={{ margin: '1rem 0 0.75rem', borderColor: '#f0f0f0' }} />
-
-            {/* ── HU-12: Estado general del caso ── */}
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '0.75rem 1rem', borderRadius: 8,
-              background: showDetail.status === 'Terminado' ? '#f0fdf4' : '#f8fafc',
-              border: `1px solid ${showDetail.status === 'Terminado' ? '#86efac' : '#e5e7eb'}`
-            }}>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>Estado general del caso</p>
-                <div style={{ marginTop: 4 }}>
-                  <Badge colors={STATUS_COLORS[showDetail.status]}>{showDetail.status}</Badge>
-                </div>
-              </div>
-              {showDetail.status !== 'Terminado' && nextStatus[showDetail.status] && (
-                <button
-                  disabled={changingStatus}
-                  onClick={() => handleTicketStatusChange(showDetail.id, nextStatus[showDetail.status])}
-                  style={{
-                    padding: '0.5rem 1rem', borderRadius: 8,
-                    border: 'none', background: '#C0191F',
-                    color: 'white', fontSize: '0.875rem', fontWeight: 600,
-                    cursor: changingStatus ? 'not-allowed' : 'pointer',
-                    opacity: changingStatus ? 0.6 : 1,
-                  }}
-                >
-                  {changingStatus ? 'Actualizando...' : `→ Marcar como ${nextStatus[showDetail.status]}`}
-                </button>
-              )}
-              {showDetail.status === 'Terminado' && (
-                <span style={{ color: '#166534', fontWeight: 600 }}>✔ Caso cerrado</span>
-              )}
-            </div>
-
-            {/* ── HU-12: Historial de estados ── */}
-            <div style={{ marginTop: '1rem' }}>
-              <button
-                onClick={async () => {
-                  if (!showHistory) await loadHistory(showDetail.id)
-                  setShowHistory(prev => !prev)
-                }}
-                style={{
-                  background: 'none', border: 'none', color: '#2563eb',
-                  cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600, padding: 0
-                }}
-              >
-                {showHistory ? '▲ Ocultar historial de cambios' : '▼ Ver historial de cambios'}
-              </button>
-
-              {showHistory && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  {loadingHistory ? (
-                    <p style={{ color: '#888', fontSize: '0.875rem' }}>Cargando historial...</p>
-                  ) : history.length === 0 ? (
-                    <p style={{ color: '#888', fontSize: '0.875rem' }}>Sin cambios registrados aún.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 200, overflowY: 'auto' }}>
-                      {history.map(h => (
-                        <div key={h.id} style={{
-                          display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                          padding: '0.5rem 0.75rem', borderRadius: 8, background: '#f9fafb',
-                          border: '1px solid #e5e7eb', fontSize: '0.82rem'
-                        }}>
-                          <div style={{
-                            width: 8, height: 8, borderRadius: '50%', marginTop: 4, flexShrink: 0,
-                            background: h.entityType === 'Ticket' ? '#C0191F' : '#3b82f6'
-                          }} />
-                          <div style={{ flex: 1 }}>
-                            <span style={{ fontWeight: 600 }}>
-                              {h.entityType === 'Ticket' ? 'Caso' : 'Equipo'}
-                            </span>
-                            {' – '}
-                            <Badge colors={STATUS_COLORS[h.previousStatus]}>{h.previousStatus}</Badge>
-                            {' → '}
-                            <Badge colors={STATUS_COLORS[h.newStatus]}>{h.newStatus}</Badge>
-                            <span style={{ color: '#6b7280', marginLeft: 6 }}>
-                              por <strong>{h.changedByUserName ?? getUserName(h.changedByUserId)}</strong>
-                            </span>
-                            {h.comment && <span style={{ color: '#6b7280' }}> · {h.comment}</span>}
-                          </div>
-                          <span style={{ color: '#9ca3af', flexShrink: 0 }}>{formatDate(h.changedAt)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -780,15 +412,6 @@ function Badge({ colors, children }) {
     }}>
       {children}
     </span>
-  )
-}
-
-function Info({ label, value, children }) {
-  return (
-    <div style={{ marginBottom: '0.4rem' }}>
-      <span style={{ fontSize: '0.75rem', color: '#888', display: 'block' }}>{label}</span>
-      {children ?? <span style={{ fontWeight: 500 }}>{value ?? '-'}</span>}
-    </div>
   )
 }
 
