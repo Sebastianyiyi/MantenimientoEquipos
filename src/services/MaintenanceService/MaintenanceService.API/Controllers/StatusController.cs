@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MaintenanceService.Application.DTOs;
 using MaintenanceService.Domain.Entities;
 using MaintenanceService.Infrastructure.Data;
@@ -65,7 +66,7 @@ public class StatusController : ControllerBase
         {
             ticket.ClosedAt = DateTime.Now;
 
-            // Volver equipos a "Activo"
+            // Volver equipos a "Activo", excepto los que ya estén dados de baja o sean no reparables
             try
             {
                 var teList = await _db.TicketEquipments
@@ -75,6 +76,18 @@ public class StatusController : ControllerBase
                 var client = _httpClientFactory.CreateClient();
                 foreach (var te in teList)
                 {
+                    // Consultar el estado actual del equipo antes de pisarlo
+                    var eqRes = await client.GetAsync(
+                        $"http://localhost:5002/api/equipments/{te.EquipmentId}");
+
+                    if (eqRes.IsSuccessStatusCode)
+                    {
+                        var eq = await eqRes.Content.ReadFromJsonAsync<EquipmentStatusSnapshot>();
+                        // Si ya está dado de baja o no reparable, no revertir
+                        if (eq?.Status is "Dado de baja" or "No Reparable")
+                            continue;
+                    }
+
                     await client.PatchAsJsonAsync(
                         $"http://localhost:5002/api/equipments/{te.EquipmentId}/status",
                         new { status = "Activo" }
@@ -162,4 +175,10 @@ public class StatusController : ControllerBase
 
         return Ok(history);
     }
+}
+// DTO mínimo para leer el estado del equipo desde EquipmentService
+file sealed class EquipmentStatusSnapshot
+{
+    [JsonPropertyName("status")]
+    public string? Status { get; set; }
 }

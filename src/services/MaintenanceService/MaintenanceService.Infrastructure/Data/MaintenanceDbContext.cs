@@ -13,6 +13,7 @@ public class MaintenanceDbContext : DbContext
     public DbSet<Activity> Activities => Set<Activity>();
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<StatusHistory> StatusHistories => Set<StatusHistory>();
+    public DbSet<DeviceReplacement> DeviceReplacements => Set<DeviceReplacement>();
 
     // HU-10: catálogos de actividades y diagnósticos
     public DbSet<CatalogActivity> CatalogActivities => Set<CatalogActivity>();
@@ -22,7 +23,24 @@ public class MaintenanceDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Ticket
+        // DeviceReplacement
+        modelBuilder.Entity<DeviceReplacement>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EquipoSalienteCodigo).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.EquipoEntranteCodigo).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.Motivo).IsRequired().HasMaxLength(1024);
+
+            // Un equipo entrante no puede usarse en dos reemplazos distintos
+            entity.HasIndex(e => e.EquipoEntranteId).IsUnique();
+
+            entity.HasOne(e => e.Ticket)
+                  .WithMany()
+                  .HasForeignKey(e => e.TicketId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Ticket — número único
         modelBuilder.Entity<Ticket>(entity =>
         {
             entity.HasKey(e => e.Id);

@@ -51,7 +51,7 @@ function StatCard({ label, value, icon }) {
   )
 }
 
-function CasoCard({ caso, usuariosMap, equipment }) {
+function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
   const [expanded, setExpanded] = useState(false)
 
   const tipoStyle  = TIPO_COLOR[caso.maintenanceType]  ?? { bg: '#f3f4f6', color: '#374151' }

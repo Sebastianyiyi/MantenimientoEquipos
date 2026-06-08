@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { equipmentApi, locationApi, maintenanceApi } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 import './Reemplazo.css'
 
 /* ─── Constantes ─── */
@@ -44,11 +45,12 @@ function StepIndicator({ current }) {
   )
 }
 
-function EquipmentCard({ eq, selected, onClick, disabled }) {
+function EquipmentCard({ eq, selected, onClick, disabled, disabledReason }) {
   return (
     <div
       className={`rep-eq-card ${selected ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
       onClick={disabled ? undefined : onClick}
+      title={disabled && disabledReason ? disabledReason : undefined}
     >
       <div className="rep-eq-card-header">
         <span className="rep-eq-code">{eq.code}</span>
@@ -60,6 +62,9 @@ function EquipmentCard({ eq, selected, onClick, disabled }) {
         <span>S/N: <strong>{eq.serialNumber}</strong></span>
         {eq.laboratoristaName && <span>Resp: <strong>{eq.laboratoristaName}</strong></span>}
       </div>
+      {disabled && disabledReason && (
+        <div className="rep-eq-disabled-label">⚠ {disabledReason}</div>
+      )}
       {selected && <div className="rep-eq-check">✓ Seleccionado</div>}
     </div>
   )
@@ -67,112 +72,159 @@ function EquipmentCard({ eq, selected, onClick, disabled }) {
 
 /* ─── Componente principal ─── */
 export default function Reemplazo() {
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
 
   // Datos cargados
-  const [allEquipments, setAllEquipments] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [allEquipments, setAllEquipments]   = useState([])
+  const [sustituidosIds, setSustituidosIds] = useState([])   // equipos salientes ya reemplazados
+  const [entrantesUsados, setEntrantesUsados] = useState([]) // equipos que ya fueron sustitutos
+  const [locationMap, setLocationMap]       = useState({})   // equipmentId → true si tiene ubicación
+  const [loading, setLoading]               = useState(true)
+  const [error, setError]                   = useState('')
 
   // Selecciones
-  const [saliente, setSaliente] = useState(null)    // equipo que se retira
-  const [entrante, setEntrante] = useState(null)    // equipo que entra
+  const [saliente, setSaliente] = useState(null)
+  const [entrante, setEntrante] = useState(null)
+
+  // Formulario campos obligatorios
+  const [motivo, setMotivo]               = useState('')
+  const [fechaReemplazo, setFechaReemplazo] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  )
 
   // Búsquedas
   const [searchSaliente, setSearchSaliente] = useState('')
   const [searchEntrante, setSearchEntrante] = useState('')
 
-  // Estado del proceso
+  // Proceso
   const [processing, setProcessing] = useState(false)
-  const [resultMsg, setResultMsg] = useState(null)  // { ok: bool, msg: string }
+  const [resultMsg, setResultMsg]   = useState(null)
 
-  // ── Carga de equipos ──
-  const loadEquipments = useCallback(async () => {
+  // ── Carga inicial ──
+  const loadAll = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await equipmentApi.get('/equipments')
-      setAllEquipments(res.data)
+      const [eqRes, sustituidosRes, entrantesRes] = await Promise.all([
+        equipmentApi.get('/equipments'),
+        maintenanceApi.get('/reemplazos/sustituidos'),
+        maintenanceApi.get('/reemplazos/entrantes-usados'),
+      ])
+      setAllEquipments(eqRes.data)
+      setSustituidosIds(sustituidosRes.data)
+      setEntrantesUsados(entrantesRes.data)
+
+      // Consultar si cada equipo activo tiene ubicación asignada
+      const activos = eqRes.data.filter(eq => eq.status === 'Activo')
+      const locChecks = await Promise.allSettled(
+        activos.map(eq =>
+          locationApi.get(`/equipment-locations/current/${eq.id}`)
+            .then(() => ({ id: eq.id, hasLocation: true }))
+            .catch(() => ({ id: eq.id, hasLocation: false }))
+        )
+      )
+      const map = {}
+      locChecks.forEach(r => {
+        if (r.status === 'fulfilled') map[r.value.id] = r.value.hasLocation
+      })
+      setLocationMap(map)
     } catch {
-      setError('No se pudieron cargar los equipos. Verifica la conexión al servicio.')
+      setError('No se pudieron cargar los datos. Verifica la conexión al servicio.')
     } finally {
       setLoading(false)
     }
   }, [])
 
-  useEffect(() => { loadEquipments() }, [loadEquipments])
+  useEffect(() => { loadAll() }, [loadAll])
 
   // ── Derivados ──
+
+  // Paso 1: elegibles = (Dado de baja | No Reparable) y NO ya sustituidos
   const elegibles = allEquipments.filter(eq =>
     ESTADOS_ELEGIBLES.includes(eq.status) &&
+    !sustituidosIds.includes(eq.id) &&
     (eq.code.toLowerCase().includes(searchSaliente.toLowerCase()) ||
      eq.brand.toLowerCase().includes(searchSaliente.toLowerCase()) ||
      eq.model.toLowerCase().includes(searchSaliente.toLowerCase()) ||
      eq.serialNumber.toLowerCase().includes(searchSaliente.toLowerCase()))
   )
 
+  // Paso 2: candidatos = misma categoría, Activo, sin ubicación, no usado previamente como sustituto
   const candidatos = saliente
-    ? allEquipments.filter(eq =>
-        eq.id !== saliente.id &&
-        eq.status === 'Activo' &&
-        eq.equipmentType?.id === saliente.equipmentType?.id &&
-        (eq.code.toLowerCase().includes(searchEntrante.toLowerCase()) ||
-         eq.brand.toLowerCase().includes(searchEntrante.toLowerCase()) ||
-         eq.model.toLowerCase().includes(searchEntrante.toLowerCase()) ||
-         eq.serialNumber.toLowerCase().includes(searchEntrante.toLowerCase()))
-      )
+    ? allEquipments
+        .filter(eq =>
+          eq.id !== saliente.id &&
+          eq.status === 'Activo' &&
+          eq.equipmentType?.id === saliente.equipmentType?.id &&
+          (eq.code.toLowerCase().includes(searchEntrante.toLowerCase()) ||
+           eq.brand.toLowerCase().includes(searchEntrante.toLowerCase()) ||
+           eq.model.toLowerCase().includes(searchEntrante.toLowerCase()) ||
+           eq.serialNumber.toLowerCase().includes(searchEntrante.toLowerCase()))
+        )
+        .map(eq => ({
+          ...eq,
+          _tieneUbicacion: locationMap[eq.id] === true,
+          _yaUsado: entrantesUsados.includes(eq.id),
+          get _disabled() { return this._tieneUbicacion || this._yaUsado },
+          get _disabledReason() {
+            if (this._yaUsado) return 'Ya fue asignado en otro reemplazo'
+            if (this._tieneUbicacion) return 'Tiene laboratorio asignado'
+            return ''
+          },
+        }))
     : []
+
+  // Validación del formulario de confirmación
+  const formularioValido =
+    saliente &&
+    entrante &&
+    motivo.trim().length > 0 &&
+    fechaReemplazo &&
+    user?.id
 
   // ── Confirmar reemplazo ──
   const confirmarReemplazo = async () => {
-    if (!saliente || !entrante) return
+    if (!formularioValido) return
     setProcessing(true)
     setResultMsg(null)
 
     try {
-      // 1. Marcar el equipo saliente como definitivamente dado de baja
-      //    (ya tiene status elegible, solo aseguramos el status correcto)
+      // 1. Marcar saliente definitivamente como "Dado de baja"
       await equipmentApi.patch(`/equipments/${saliente.id}/status`, {
         status: 'Dado de baja'
       })
 
-      // 2. Remover la ubicación física del equipo saliente (si la tiene)
+      // 2. Remover ubicación física del saliente (si la tiene)
       try {
         await locationApi.patch(`/equipment-locations/remove/${saliente.id}`, {
-          notes: `Equipo dado de baja definitivamente por reemplazo con ${entrante.code}`
+          notes: `Equipo dado de baja por reemplazo con ${entrante.code}. ${motivo.trim()}`
         })
       } catch (locErr) {
-        // 404 = no tenía ubicación → no es error crítico
         if (locErr.response?.status !== 404) throw locErr
       }
 
-      // 3. Registrar entrada inicial en Hoja de Vida del equipo entrante
-      //    Creamos un ticket especial de tipo "Reemplazo"
-      try {
-        await maintenanceApi.post('/reemplazos', {
-          equipoSalienteId: saliente.id,
-          equipoSalienteCodigo: saliente.code,
-          equipoEntranteId: entrante.id,
-          equipoEntranteCodigo: entrante.code,
-          nota: `Registro por reemplazo del equipo ${saliente.code}`
-        })
-      } catch (mErr) {
-        // Si el endpoint no existe aún, lo registramos como advertencia
-        // El core del reemplazo (pasos 1 y 2) ya se completó
-        console.warn('[Reemplazo] Endpoint /reemplazos no disponible aún:', mErr.message)
-      }
-
-      setResultMsg({
-        ok: true,
-        msg: `✓ Reemplazo completado. El equipo ${saliente.code} fue dado de baja y el equipo ${entrante.code} toma su lugar. La Hoja de Vida del equipo saliente se conserva.`
+      // 3. Registrar en MaintenanceService (genera ticket HdV + DeviceReplacement persistente)
+      await maintenanceApi.post('/reemplazos', {
+        equipoSalienteId:     saliente.id,
+        equipoSalienteCodigo: saliente.code,
+        equipoEntranteId:     entrante.id,
+        equipoEntranteCodigo: entrante.code,
+        motivo:               motivo.trim(),
+        asignadoPorUserId:    user.id,
+        fechaReemplazo:       new Date(fechaReemplazo).toISOString(),
       })
 
-      // Refrescar lista
-      await loadEquipments()
-      setStep(4) // paso de éxito
+      setResultMsg({
+        ok:  true,
+        msg: `✓ Reemplazo completado. El equipo ${saliente.code} fue dado de baja definitivamente y el equipo ${entrante.code} toma su lugar. La Hoja de Vida del equipo saliente queda conservada.`
+      })
+
+      await loadAll()
+      setStep(4)
     } catch (err) {
       setResultMsg({
-        ok: false,
+        ok:  false,
         msg: `Error al procesar el reemplazo: ${err.response?.data?.message ?? err.message}`
       })
     } finally {
@@ -186,6 +238,8 @@ export default function Reemplazo() {
     setEntrante(null)
     setSearchSaliente('')
     setSearchEntrante('')
+    setMotivo('')
+    setFechaReemplazo(new Date().toISOString().slice(0, 10))
     setResultMsg(null)
     setStep(1)
   }
@@ -208,7 +262,7 @@ export default function Reemplazo() {
         <span className="rep-rules-icon">📋</span>
         <div>
           <strong>Reglas del proceso:</strong>
-          <span> El equipo saliente debe estar "Dado de baja" o "No Reparable". El equipo entrante debe ser de la misma categoría y estar activo. La Hoja de Vida del equipo saliente se conserva; el equipo entrante inicia una nueva con el registro de reemplazo.</span>
+          <span> El equipo saliente debe estar "Dado de baja" o "No Reparable". El equipo entrante debe ser de la misma categoría, estar activo y sin laboratorio asignado. La Hoja de Vida del equipo saliente se conserva; el equipo entrante inicia una nueva con el registro de reemplazo.</span>
         </div>
       </div>
 
@@ -222,7 +276,7 @@ export default function Reemplazo() {
       {error && (
         <div className="rep-error">
           <span>⚠️</span> {error}
-          <button className="rep-retry-btn" onClick={loadEquipments}>Reintentar</button>
+          <button className="rep-retry-btn" onClick={loadAll}>Reintentar</button>
         </div>
       )}
 
@@ -235,7 +289,7 @@ export default function Reemplazo() {
             <div className="rep-panel">
               <div className="rep-panel-header">
                 <h2>① Selecciona el equipo a reemplazar</h2>
-                <p>Solo se muestran equipos con estado <em>Dado de baja</em> o <em>No Reparable</em>.</p>
+                <p>Solo se muestran equipos con estado <em>Dado de baja</em> o <em>No Reparable</em> que aún no han sido sustituidos.</p>
               </div>
 
               <div className="rep-search-bar">
@@ -253,7 +307,7 @@ export default function Reemplazo() {
                 <div className="rep-empty">
                   <span>🔍</span>
                   <p>No hay equipos elegibles para reemplazo{searchSaliente ? ' con ese criterio' : ''}.</p>
-                  <small>Un equipo es elegible cuando su estado es "Dado de baja" o "No Reparable" tras un diagnóstico.</small>
+                  <small>Un equipo es elegible cuando su estado es "Dado de baja" o "No Reparable" y aún no ha sido sustituido.</small>
                 </div>
               ) : (
                 <div className="rep-grid">
@@ -286,7 +340,7 @@ export default function Reemplazo() {
               <div className="rep-panel-header">
                 <h2>② Selecciona el equipo sustituto</h2>
                 <p>
-                  Debe ser de la misma categoría que <strong>{saliente?.equipmentType?.name}</strong> y estar activo.
+                  Debe ser de la misma categoría que <strong>{saliente?.equipmentType?.name}</strong>, estar activo y <strong>sin laboratorio asignado</strong>.
                 </p>
               </div>
 
@@ -314,8 +368,8 @@ export default function Reemplazo() {
               {candidatos.length === 0 ? (
                 <div className="rep-empty">
                   <span>🔍</span>
-                  <p>No hay equipos activos de la categoría <strong>{saliente?.equipmentType?.name}</strong>{searchEntrante ? ' con ese criterio' : ''}.</p>
-                  <small>El equipo sustituto debe pertenecer obligatoriamente a la misma categoría y estar registrado como Activo.</small>
+                  <p>No hay equipos activos disponibles de la categoría <strong>{saliente?.equipmentType?.name}</strong>{searchEntrante ? ' con ese criterio' : ''}.</p>
+                  <small>El sustituto debe estar Activo y sin laboratorio asignado.</small>
                 </div>
               ) : (
                 <div className="rep-grid">
@@ -324,7 +378,9 @@ export default function Reemplazo() {
                       key={eq.id}
                       eq={eq}
                       selected={entrante?.id === eq.id}
-                      onClick={() => setEntrante(eq)}
+                      disabled={eq._disabled}
+                      disabledReason={eq._disabledReason}
+                      onClick={eq._disabled ? undefined : () => setEntrante(eq)}
                     />
                   ))}
                 </div>
@@ -345,12 +401,12 @@ export default function Reemplazo() {
             </div>
           )}
 
-          {/* ── PASO 3: Confirmación ── */}
+          {/* ── PASO 3: Confirmación + campos obligatorios ── */}
           {step === 3 && (
             <div className="rep-panel">
               <div className="rep-panel-header">
                 <h2>③ Confirmar el reemplazo</h2>
-                <p>Revisa los detalles antes de ejecutar. Esta acción no se puede deshacer.</p>
+                <p>Completa todos los campos y revisa los detalles. Esta acción no se puede deshacer.</p>
               </div>
 
               <div className="rep-confirm-layout">
@@ -393,9 +449,53 @@ export default function Reemplazo() {
                     </div>
                   </div>
                   <div className="rep-confirm-note in">
-                    ✓ Inicia Hoja de Vida limpia<br />
-                    ✓ Entrada: "Registro por reemplazo del equipo {saliente.code}"
+                    ✓ Inicia Hoja de Vida con este reemplazo<br />
+                    ✓ Disponible sin laboratorio asignado
                   </div>
+                </div>
+              </div>
+
+              {/* ── Campos obligatorios ── */}
+              <div className="rep-form-fields">
+                <div className="rep-form-group">
+                  <label className="rep-form-label">
+                    Motivo del reemplazo <span className="rep-required">*</span>
+                  </label>
+                  <textarea
+                    className={`rep-form-textarea ${!motivo.trim() ? 'invalid' : ''}`}
+                    rows={3}
+                    placeholder="Describe el motivo del reemplazo…"
+                    value={motivo}
+                    onChange={e => setMotivo(e.target.value)}
+                    maxLength={1000}
+                  />
+                  {!motivo.trim() && (
+                    <span className="rep-form-error">El motivo es obligatorio</span>
+                  )}
+                </div>
+
+                <div className="rep-form-group">
+                  <label className="rep-form-label">
+                    Fecha del reemplazo <span className="rep-required">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    className={`rep-form-input ${!fechaReemplazo ? 'invalid' : ''}`}
+                    value={fechaReemplazo}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={e => setFechaReemplazo(e.target.value)}
+                  />
+                </div>
+
+                <div className="rep-form-group">
+                  <label className="rep-form-label">Asignado por</label>
+                  <input
+                    type="text"
+                    className="rep-form-input"
+                    value={user?.name ?? user?.email ?? '—'}
+                    disabled
+                    readOnly
+                  />
                 </div>
               </div>
 
@@ -412,7 +512,8 @@ export default function Reemplazo() {
                 <button
                   className="btn-primary rep-btn danger"
                   onClick={confirmarReemplazo}
-                  disabled={processing}
+                  disabled={!formularioValido || processing}
+                  title={!formularioValido ? 'Completa todos los campos obligatorios' : ''}
                 >
                   {processing ? (
                     <><span className="rep-btn-spinner" /> Procesando…</>
@@ -439,7 +540,7 @@ export default function Reemplazo() {
               <strong>{saliente?.code} — {saliente?.brand} {saliente?.model}</strong>
             </div>
             <div className="rep-success-item in">
-              <span>↓ Ahora en uso</span>
+              <span>↓ Ahora en uso como sustituto</span>
               <strong>{entrante?.code} — {entrante?.brand} {entrante?.model}</strong>
             </div>
           </div>

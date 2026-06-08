@@ -188,7 +188,10 @@ export default function DetalleCaso() {
     if (!window.confirm('¿Está seguro de dar de baja este equipo? Esta acción cambia su estado permanentemente.')) return
     setProcesandoBaja(true)
     try {
-      await equipmentApi.patch(`/equipments/${equipmentId}/decommission`, { motivo: bajaMotivo.trim() })
+      await equipmentApi.patch(`/equipments/${equipmentId}/decommission`, {
+        motivo: bajaMotivo.trim(),
+        cambiadoPorUserId: user?.id ?? null,
+      })
       setBajaEquipoId(null)
       setBajaMotivo('')
       await loadTicket()
