@@ -91,64 +91,6 @@ public class ReportesController : ControllerBase
         });
     }
 
-    // GET /api/reportes/estadisticas
-    [HttpGet("estadisticas")]
-    public async Task<IActionResult> GetEstadisticas(
-        [FromQuery] DateTime? desde,
-        [FromQuery] DateTime? hasta)
-    {
-        var query = _db.Tickets.AsQueryable();
-
-        if (desde.HasValue) query = query.Where(t => t.CreatedAt >= desde.Value);
-        if (hasta.HasValue) query = query.Where(t => t.CreatedAt <= hasta.Value.AddDays(1));
-
-        var tickets = await query
-            .Include(t => t.TicketEquipments)
-                .ThenInclude(te => te.TicketTechnicians)
-            .Include(t => t.TicketEquipments)
-                .ThenInclude(te => te.Resources)
-            .ToListAsync();
-
-        var porTipo = tickets
-            .GroupBy(t => t.MaintenanceType)
-            .Select(g => new { Tipo = g.Key, Total = g.Count() })
-            .ToList();
-
-        var porEstado = tickets
-            .GroupBy(t => t.Status)
-            .Select(g => new { Estado = g.Key, Total = g.Count() })
-            .ToList();
-
-        var tecnicosCarga = tickets
-            .SelectMany(t => t.TicketEquipments)
-            .SelectMany(te => te.TicketTechnicians)
-            .GroupBy(tt => tt.TechnicianUserId)
-            .Select(g => new { TechnicianUserId = g.Key, TotalCasos = g.Count() })
-            .OrderByDescending(x => x.TotalCasos)
-            .Take(10)
-            .ToList();
-
-        var recursosMasUsados = tickets
-            .SelectMany(t => t.TicketEquipments)
-            .SelectMany(te => te.Resources)
-            .GroupBy(r => r.Name)
-            .Select(g => new { Recurso = g.Key, TotalUsado = g.Sum(r => r.Quantity) })
-            .OrderByDescending(x => x.TotalUsado)
-            .Take(10)
-            .ToList();
-
-        return Ok(new
-        {
-            TotalCasos = tickets.Count,
-            CasosPorTipo = porTipo,
-            CasosPorEstado = porEstado,
-            TecnicosCarga = tecnicosCarga,
-            RecursosMasUsados = recursosMasUsados,
-            Desde = desde,
-            Hasta = hasta
-        });
-    }
-
     // POST /api/reportes/hoja-vida-multiple
     [HttpPost("hoja-vida-multiple")]
     public async Task<IActionResult> GetHojaVidaMultiple([FromBody] List<Guid> equipmentIds)
@@ -238,4 +180,63 @@ public class ReportesController : ControllerBase
 
         return Ok(resultado);
     }
+
+    // GET /api/reportes/estadisticas
+    [HttpGet("estadisticas")]
+    public async Task<IActionResult> GetEstadisticas(
+        [FromQuery] DateTime? desde,
+        [FromQuery] DateTime? hasta)
+    {
+        var query = _db.Tickets.AsQueryable();
+
+        if (desde.HasValue) query = query.Where(t => t.CreatedAt >= desde.Value);
+        if (hasta.HasValue) query = query.Where(t => t.CreatedAt <= hasta.Value.AddDays(1));
+
+        var tickets = await query
+            .Include(t => t.TicketEquipments)
+                .ThenInclude(te => te.TicketTechnicians)
+            .Include(t => t.TicketEquipments)
+                .ThenInclude(te => te.Resources)
+            .ToListAsync();
+
+        var porTipo = tickets
+            .GroupBy(t => t.MaintenanceType)
+            .Select(g => new { Tipo = g.Key, Total = g.Count() })
+            .ToList();
+
+        var porEstado = tickets
+            .GroupBy(t => t.Status)
+            .Select(g => new { Estado = g.Key, Total = g.Count() })
+            .ToList();
+
+        var tecnicosCarga = tickets
+            .SelectMany(t => t.TicketEquipments)
+            .SelectMany(te => te.TicketTechnicians)
+            .GroupBy(tt => tt.TechnicianUserId)
+            .Select(g => new { TechnicianUserId = g.Key, TotalCasos = g.Count() })
+            .OrderByDescending(x => x.TotalCasos)
+            .Take(10)
+            .ToList();
+
+        var recursosMasUsados = tickets
+            .SelectMany(t => t.TicketEquipments)
+            .SelectMany(te => te.Resources)
+            .GroupBy(r => r.Name)
+            .Select(g => new { Recurso = g.Key, TotalUsado = g.Sum(r => r.Quantity) })
+            .OrderByDescending(x => x.TotalUsado)
+            .Take(10)
+            .ToList();
+
+        return Ok(new
+        {
+            TotalCasos = tickets.Count,
+            CasosPorTipo = porTipo,
+            CasosPorEstado = porEstado,
+            TecnicosCarga = tecnicosCarga,
+            RecursosMasUsados = recursosMasUsados,
+            Desde = desde,
+            Hasta = hasta
+        });
+    }
+
 }

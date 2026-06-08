@@ -114,10 +114,63 @@ export default function Reportes() {
 
     const ids = equiposSeleccionados.map(e => e.id)
     const res = await maintenanceApi.post('/reportes/hoja-vida-multiple', ids)
-    const lista = res.data  // array, uno por equipo
+    const lista = res.data
 
     const doc = new jsPDF()
-    const rojo = [192, 25, 31]
+    const ROJO    = [192, 25, 31]
+    const GRIS_OS = [31, 41, 55]    // encabezados de sección
+    const GRIS_CL = [249, 250, 251] // fondo alterno de filas
+    const VERDE   = [220, 252, 231]
+    const VERDE_T = [22, 101, 52]
+    const AMARILLO   = [254, 249, 195]
+    const AMARILLO_T = [133, 77, 14]
+    const ROJO_CL = [254, 226, 226]
+    const ROJO_T  = [153, 27, 27]
+    const AZUL_CL = [219, 234, 254]
+    const AZUL_T  = [30, 64, 175]
+
+    const tipoColor = (tipo) => {
+      if (tipo === 'Preventivo')  return { bg: VERDE,    txt: VERDE_T }
+      if (tipo === 'Correctivo')  return { bg: ROJO_CL,  txt: ROJO_T  }
+      if (tipo === 'Adaptativo')  return { bg: AZUL_CL,  txt: AZUL_T  }
+      return { bg: [243,244,246], txt: [55,65,81] }
+    }
+
+    const estadoColor = (estado) => {
+      if (estado === 'Terminado')   return { bg: VERDE,    txt: VERDE_T }
+      if (estado === 'En Proceso')  return { bg: AMARILLO, txt: AMARILLO_T }
+      if (estado === 'Pendiente')   return { bg: [243,244,246], txt: [55,65,81] }
+      return { bg: [243,244,246], txt: [55,65,81] }
+    }
+
+    // Dibuja una "pill" (badge redondeado) con texto centrado
+    const drawBadge = (doc, text, x, y, bgColor, txtColor) => {
+      const fs = 7
+      doc.setFontSize(fs)
+      const w = doc.getTextWidth(text) + 6
+      const h = 5
+      doc.setFillColor(...bgColor)
+      doc.roundedRect(x, y - 3.5, w, h, 1.5, 1.5, 'F')
+      doc.setTextColor(...txtColor)
+      doc.setFont('helvetica', 'bold')
+      doc.text(text, x + 3, y)
+      doc.setFont('helvetica', 'normal')
+      return w  // ancho del badge para encadenar
+    }
+
+    // Línea separadora gris
+    const drawDivider = (doc, y) => {
+      doc.setDrawColor(229, 231, 235)
+      doc.setLineWidth(0.3)
+      doc.line(14, y, 196, y)
+    }
+
+    // Verifica salto de página
+    const checkPage = (doc, y, needed = 20) => {
+      if (y + needed > 280) { doc.addPage(); return 20 }
+      return y
+    }
+
     let esPrimeraPagina = true
 
     for (const datos of lista) {
@@ -126,91 +179,272 @@ export default function Reportes() {
       if (!esPrimeraPagina) doc.addPage()
       esPrimeraPagina = false
 
-      // Encabezado
-      doc.setFillColor(...rojo)
-      doc.rect(0, 0, 210, 28, 'F')
+      // ── ENCABEZADO ──────────────────────────────────────────────
+      doc.setFillColor(...ROJO)
+      doc.rect(0, 0, 210, 30, 'F')
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(14)
+      doc.setFontSize(13)
       doc.setFont('helvetica', 'bold')
-      doc.text('UNIVERSIDAD TÉCNICA DE AMBATO', 105, 10, { align: 'center' })
-      doc.setFontSize(10)
+      doc.text('UNIVERSIDAD TÉCNICA DE AMBATO — FISEI', 105, 11, { align: 'center' })
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'normal')
-      doc.text('Sistema de Mantenimiento de Equipos Tecnológicos — FISEI', 105, 17, { align: 'center' })
-      doc.text(`Hoja de Vida: ${equipo?.assetTag ?? datos.equipmentId}`, 105, 23, { align: 'center' })
+      doc.text('Sistema de Mantenimiento de Equipos Tecnológicos', 105, 18, { align: 'center' })
+      doc.text(`Hoja de Vida del Equipo · Generado el ${formatDate(new Date())}`, 105, 24, { align: 'center' })
       doc.setTextColor(0, 0, 0)
-      let y = 36
 
-      // Datos del equipo
+      let y = 38
+
+      // ── FICHA DEL EQUIPO ─────────────────────────────────────────
+      doc.setFillColor(...GRIS_OS)
+      doc.roundedRect(14, y - 5, 182, 6, 1, 1, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.text('Datos del Equipo', 14, y); y += 6
+      doc.text('IDENTIFICACIÓN DEL EQUIPO', 17, y)
+      doc.setTextColor(0, 0, 0)
+      y += 5
 
       autoTable(doc, {
         startY: y,
         body: [
-          ['Asset Tag',            equipo?.assetTag ?? '—'],
-          ['Marca / Modelo',       `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
-          ['Serie',                equipo?.serialNumber ?? '—'],
-          ['Estado actual',        equipo?.status ?? '—'],
-          ['Total de casos',       datos.totalCasos],
-          ['Total de actividades', datos.totalActividades],
-          ['Total de recursos',    datos.totalRecursos],
-          ['Último mantenimiento', formatDate(datos.ultimoMantenimiento)],
+          ['Asset Tag', equipo?.assetTag ?? '—',   'Marca / Modelo', `${equipo?.brand ?? ''} ${equipo?.model ?? ''}`],
+          ['N° de Serie', equipo?.serialNumber ?? '—', 'Tipo',          equipo?.equipmentType?.name ?? equipo?.equipmentTypeName ?? '—'],
+          ['Estado',     equipo?.status ?? '—',    'Último mant.',   formatDate(datos.ultimoMantenimiento)],
         ],
-        headStyles: { fillColor: rojo },
-        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 32, fillColor: [243,244,246] },
+          1: { cellWidth: 55 },
+          2: { fontStyle: 'bold', cellWidth: 32, fillColor: [243,244,246] },
+          3: { cellWidth: 55 },
+        },
+        styles: { fontSize: 8.5, cellPadding: 3 },
         margin: { left: 14, right: 14 },
+        theme: 'grid',
       })
-      y = doc.lastAutoTable.finalY + 8
+      y = doc.lastAutoTable.finalY + 4
 
-      // Historia de casos
-      for (const caso of datos.historia ?? []) {
-        if (y > 240) { doc.addPage(); y = 20 }
+      // ── RESUMEN ESTADÍSTICO ───────────────────────────────────────
+      const stats = [
+        { label: 'Casos registrados',    value: datos.totalCasos },
+        { label: 'Actividades realizadas', value: datos.totalActividades },
+        { label: 'Recursos utilizados',  value: datos.totalRecursos },
+      ]
+      const boxW = 58, boxH = 14, gap = 4
+      let bx = 14
+      stats.forEach(s => {
+        doc.setFillColor(254, 242, 242)
+        doc.roundedRect(bx, y, boxW, boxH, 2, 2, 'F')
+        doc.setDrawColor(...ROJO)
+        doc.setLineWidth(0.4)
+        doc.roundedRect(bx, y, boxW, boxH, 2, 2, 'S')
+        doc.setFontSize(14)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(11)
-        doc.setTextColor(...rojo)
-        doc.text(`${caso.ticketNumber} — ${caso.title}`, 14, y); y += 5
-        doc.setTextColor(0, 0, 0)
-        doc.setFontSize(9)
+        doc.setTextColor(...ROJO)
+        doc.text(String(s.value), bx + boxW / 2, y + 8, { align: 'center' })
+        doc.setFontSize(7)
         doc.setFont('helvetica', 'normal')
-        doc.text(`Tipo: ${caso.maintenanceType}  |  Estado: ${caso.ticketStatus}  |  Prioridad: ${caso.priority}  |  Inicio: ${formatDate(caso.fechaInicio)}  |  Cierre: ${formatDate(caso.fechaCierre)}`, 14, y)
+        doc.setTextColor(107, 114, 128)
+        doc.text(s.label, bx + boxW / 2, y + 12, { align: 'center' })
+        bx += boxW + gap
+      })
+      y += boxH + 8
+
+      // ── LÍNEA DE TIEMPO DE CASOS ──────────────────────────────────
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...GRIS_OS)
+      doc.text('LÍNEA DE TIEMPO DE INTERVENCIONES', 14, y)
+      y += 5
+      drawDivider(doc, y)
+      y += 4
+
+      if ((datos.historia ?? []).length === 0) {
+        doc.setFontSize(8.5)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(156, 163, 175)
+        doc.text('Este equipo no tiene casos de mantenimiento registrados.', 14, y)
+        y += 10
+      }
+
+      for (const caso of datos.historia ?? []) {
+        y = checkPage(doc, y, 30)
+
+        const tc = tipoColor(caso.maintenanceType)
+        const ec = estadoColor(caso.ticketStatus)
+
+        // Línea de tiempo: círculo de color
+        doc.setFillColor(...tc.txt)
+        doc.circle(17, y + 1, 2, 'F')
+        // Línea vertical (si no es el último)
+        doc.setDrawColor(...tc.txt)
+        doc.setLineWidth(0.5)
+
+        // Fondo de cabecera del caso
+        doc.setFillColor(248, 248, 248)
+        doc.roundedRect(22, y - 4, 174, 13, 2, 2, 'F')
+        doc.setDrawColor(229, 231, 235)
+        doc.setLineWidth(0.3)
+        doc.roundedRect(22, y - 4, 174, 13, 2, 2, 'S')
+
+        // Número del ticket
+        doc.setFontSize(8.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(...GRIS_OS)
+        doc.text(caso.ticketNumber, 26, y + 1)
+
+        // Badges tipo y estado
+        const badgeX = 26 + doc.getTextWidth(caso.ticketNumber) + 4
+        const bw1 = drawBadge(doc, caso.maintenanceType, badgeX, y + 1, tc.bg, tc.txt)
+        drawBadge(doc, caso.ticketStatus, badgeX + bw1 + 2, y + 1, ec.bg, ec.txt)
+
+        // Fecha (derecha)
+        const fechaTxt = caso.fechaInicio
+          ? `${formatDate(caso.fechaInicio)}${caso.fechaCierre ? ' → ' + formatDate(caso.fechaCierre) : ''}`
+          : '—'
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(107, 114, 128)
+        doc.text(fechaTxt, 193, y + 1, { align: 'right' })
+
+        y += 11
+
+        // Título del caso
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(17, 24, 39)
+        doc.text(caso.title ?? '—', 26, y)
         y += 5
 
-        if (caso.actividades?.length > 0) {
-          autoTable(doc, {
-            startY: y,
-            head: [['Actividades realizadas', 'Categoría', 'Fecha']],
-            body: caso.actividades.map(a => [a.nombre, a.categoria, formatDate(a.addedAt)]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 14, right: 14 },
-            styles: { fontSize: 8 },
-          })
-          y = doc.lastAutoTable.finalY + 4
+        // Contador rápido: técnicos, actividades, diagnósticos, recursos
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(107, 114, 128)
+        const contadores = [
+          `👤 ${caso.tecnicos?.length ?? 0} técnico(s)`,
+          `🔧 ${caso.actividades?.length ?? 0} actividad(es)`,
+          `🔍 ${caso.diagnosticos?.length ?? 0} diagnóstico(s)`,
+          `📦 ${caso.recursos?.length ?? 0} recurso(s)`,
+        ]
+        doc.text(contadores.join('   '), 26, y)
+        y += 6
+
+        // ── TÉCNICOS ──
+        if ((caso.tecnicos ?? []).length > 0) {
+          y = checkPage(doc, y, 12)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...GRIS_OS)
+          doc.text('TÉCNICOS QUE INTERVINIERON', 26, y)
+          y += 4
+
+          for (const t of caso.tecnicos) {
+            y = checkPage(doc, y, 10)
+            const nombre = t.technicianUserId ?? '—'
+            // Avatar circular
+            doc.setFillColor(...ROJO)
+            doc.circle(30, y, 3, 'F')
+            doc.setFontSize(6.5)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(255, 255, 255)
+            doc.text((nombre[0] ?? 'T').toUpperCase(), 30, y + 1, { align: 'center' })
+            // Nombre
+            doc.setFontSize(8)
+            doc.setFont('helvetica', 'bold')
+            doc.setTextColor(17, 24, 39)
+            doc.text(nombre, 36, y + 1)
+            y += 5
+            if (t.activityDescription) {
+              doc.setFontSize(7.5)
+              doc.setFont('helvetica', 'normal')
+              doc.setTextColor(75, 85, 99)
+              doc.text(t.activityDescription, 36, y)
+              y += 4
+            }
+          }
+          y += 2
         }
 
-        if (caso.diagnosticos?.length > 0) {
+        // ── ACTIVIDADES ──
+        if ((caso.actividades ?? []).length > 0) {
+          y = checkPage(doc, y, 16)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...GRIS_OS)
+          doc.text('ACTIVIDADES REALIZADAS', 26, y)
+          y += 3
+
           autoTable(doc, {
             startY: y,
-            head: [['Diagnósticos', 'Severidad', 'Fecha']],
-            body: caso.diagnosticos.map(d => [d.nombre, d.severidad, formatDate(d.addedAt)]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 14, right: 14 },
-            styles: { fontSize: 8 },
+            head: [['Actividad', 'Categoría', 'Fecha']],
+            body: caso.actividades.map(a => [
+              a.nombre ?? a.activityName ?? '—',
+              a.categoria ?? a.activityCategory ?? '—',
+              formatDate(a.addedAt)
+            ]),
+            headStyles: { fillColor: GRIS_OS, fontSize: 7.5 },
+            bodyStyles: { fontSize: 7.5 },
+            alternateRowStyles: { fillColor: GRIS_CL },
+            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 60 }, 2: { cellWidth: 36 } },
+            margin: { left: 26, right: 14 },
+            styles: { cellPadding: 2 },
           })
-          y = doc.lastAutoTable.finalY + 4
+          y = doc.lastAutoTable.finalY + 3
         }
 
-        if (caso.recursos?.length > 0) {
+        // ── DIAGNÓSTICOS ──
+        if ((caso.diagnosticos ?? []).length > 0) {
+          y = checkPage(doc, y, 16)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...GRIS_OS)
+          doc.text('DIAGNÓSTICOS IDENTIFICADOS', 26, y)
+          y += 3
+
           autoTable(doc, {
             startY: y,
-            head: [['Recursos utilizados', 'Descripción', 'Cantidad']],
-            body: caso.recursos.map(r => [r.name, r.description ?? '—', r.quantity]),
-            headStyles: { fillColor: [75, 85, 99] },
-            margin: { left: 14, right: 14 },
-            styles: { fontSize: 8 },
+            head: [['Diagnóstico', 'Severidad', 'Fecha']],
+            body: caso.diagnosticos.map(d => [
+              d.nombre ?? d.diagnosisName ?? '—',
+              d.severidad ?? d.diagnosisSeverity ?? '—',
+              formatDate(d.addedAt)
+            ]),
+            headStyles: { fillColor: GRIS_OS, fontSize: 7.5 },
+            bodyStyles: { fontSize: 7.5 },
+            alternateRowStyles: { fillColor: GRIS_CL },
+            columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 60 }, 2: { cellWidth: 36 } },
+            margin: { left: 26, right: 14 },
+            styles: { cellPadding: 2 },
           })
-          y = doc.lastAutoTable.finalY + 8
+          y = doc.lastAutoTable.finalY + 3
         }
+
+        // ── RECURSOS ──
+        if ((caso.recursos ?? []).length > 0) {
+          y = checkPage(doc, y, 16)
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(...GRIS_OS)
+          doc.text('RECURSOS UTILIZADOS', 26, y)
+          y += 3
+
+          autoTable(doc, {
+            startY: y,
+            head: [['Recurso', 'Cantidad', 'Descripción']],
+            body: caso.recursos.map(r => [r.name ?? '—', r.quantity ?? '—', r.description ?? '—']),
+            headStyles: { fillColor: GRIS_OS, fontSize: 7.5 },
+            bodyStyles: { fontSize: 7.5 },
+            alternateRowStyles: { fillColor: GRIS_CL },
+            columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 20 }, 2: { cellWidth: 96 } },
+            margin: { left: 26, right: 14 },
+            styles: { cellPadding: 2 },
+          })
+          y = doc.lastAutoTable.finalY + 3
+        }
+
+        // Separador entre casos
+        y += 2
+        drawDivider(doc, y)
+        y += 5
       }
     }
 
@@ -218,9 +452,10 @@ export default function Reportes() {
     const total = doc.getNumberOfPages()
     for (let i = 1; i <= total; i++) {
       doc.setPage(i)
-      doc.setFontSize(8)
-      doc.setTextColor(150)
-      doc.text(`Generado el ${formatDate(new Date())} — Página ${i} de ${total}`, 105, 290, { align: 'center' })
+      doc.setFontSize(7.5)
+      doc.setTextColor(156, 163, 175)
+      doc.text(`FISEI-UTA · Sistema de Mantenimiento`, 14, 291)
+      doc.text(`Página ${i} de ${total}`, 196, 291, { align: 'right' })
     }
 
     const nombre = equiposSeleccionados.length === 1
@@ -310,7 +545,9 @@ export default function Reportes() {
         formato === 'pdf' ? await generarPdfHojaVida() : await generarExcelHojaVida()
       }
     } catch (e) {
-      setError('Error al generar el reporte. Verifica que los servicios estén corriendo.')
+      const status = e?.response?.status
+      const msg = e?.response?.data?.message ?? e?.response?.data ?? e?.message ?? 'Error desconocido'
+      setError(`Error ${status ?? ''}: ${JSON.stringify(msg)}`)
       console.error(e)
     } finally {
       setGenerando(false)
@@ -558,52 +795,6 @@ export default function Reportes() {
               </div>
             )}
 
-            {/* Resultados */}
-            {busqueda.trim().length > 0 && (
-              <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 220, overflowY: 'auto' }}>
-                {equiposFiltrados.length === 0 ? (
-                  <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af', fontSize: '0.875rem' }}>
-                    No se encontraron equipos
-                  </div>
-                ) : equiposFiltrados.map(eq => (
-                  <div
-                    key={eq.id}
-                    onClick={() => { setEquipoId(eq.id); setBusqueda(`${eq.assetTag} — ${eq.brand} ${eq.model}`) }}
-                    style={{
-                      padding: '0.6rem 0.9rem', cursor: 'pointer', fontSize: '0.875rem',
-                      borderBottom: '1px solid #f3f4f6',
-                      background: equipoId === eq.id ? '#fef2f2' : 'white',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 700 }}>{eq.assetTag}</span>
-                      <span style={{ color: '#6b7280' }}> — {eq.brand} {eq.model}</span>
-                      {eq.serialNumber && <span style={{ color: '#9ca3af', fontSize: '0.78rem' }}> · {eq.serialNumber}</span>}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: 10, background: '#f3f4f6', color: '#6b7280' }}>
-                        {eq.equipmentType?.name ?? 'Sin tipo'}
-                      </span>
-                      <span style={{
-                        fontSize: '0.72rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: 10,
-                        background: eq.status === 'Activo' ? '#dcfce7' : eq.status === 'En mantenimiento' ? '#fef9c3' : '#fee2e2',
-                        color:      eq.status === 'Activo' ? '#166534' : eq.status === 'En mantenimiento' ? '#854d0e' : '#991b1b',
-                      }}>
-                        {eq.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Equipo seleccionado */}
-            {equipoId && (
-              <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', fontSize: '0.875rem', color: '#166534', fontWeight: 600 }}>
-                ✓ Equipo seleccionado
-              </div>
-            )}
           </div>
         )}
 
