@@ -7,12 +7,6 @@ import '../../FormPage.css'
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
 
-const PRIORITY_STYLE = {
-  Alta:  { bg: '#fee2e2', color: '#991b1b' },
-  Media: { bg: '#fef9c3', color: '#854d0e' },
-  Baja:  { bg: '#f0fdf4', color: '#166534' },
-}
-
 export default function NuevoCaso() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -25,9 +19,9 @@ export default function NuevoCaso() {
   const [success, setSuccess] = useState('')
   const [previewCode, setPreviewCode] = useState('')
   const [equipSearch, setEquipSearch] = useState('')
-  const [filterPC, setFilterPC]             = useState('')
-  const [filterLab, setFilterLab]           = useState('')
-  const [filterType, setFilterType]         = useState('')
+  const [filterPC, setFilterPC] = useState('')
+  const [filterLab, setFilterLab] = useState('')
+  const [filterType, setFilterType] = useState('')
 
   const [form, setForm] = useState({
     title: '',
@@ -50,7 +44,6 @@ export default function NuevoCaso() {
         setTickets(ticketsData)
         setEquipments(eqData)
 
-        // Preview del código
         const year = new Date().getFullYear()
         const countThisYear = ticketsData.filter(t => {
           const raw = String(t.createdAt ?? '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '')
@@ -64,23 +57,19 @@ export default function NuevoCaso() {
     loadData()
   }, [])
 
-  // Equipos disponibles (no en tickets activos)
   const occupiedIds = new Set(
     tickets
       .filter(t => t.status !== 'Terminado')
       .flatMap(t => t.equipmentIds ?? [])
   )
+
   const available = equipments.filter(eq => {
     if (eq.status !== 'Activo' || occupiedIds.has(eq.id)) return false
-    if (filterPC   && !eq.code?.toLowerCase().includes(filterPC.toLowerCase()))   return false
-    if (filterLab  && String(eq.laboratory?.id ?? '') !== filterLab)              return false
-    if (filterType && String(eq.equipmentType?.id ?? '') !== filterType)          return false
-    if (equipSearch && !(
-      eq.assetTag?.toLowerCase().includes(equipSearch.toLowerCase()) ||
-      eq.brand?.toLowerCase().includes(equipSearch.toLowerCase()) ||
-      eq.model?.toLowerCase().includes(equipSearch.toLowerCase()) ||
-      eq.code?.toLowerCase().includes(equipSearch.toLowerCase())
-    )) return false
+    if (filterPC  && !eq.code?.toLowerCase().includes(filterPC.toLowerCase()))   return false
+    if (filterLab && String(eq.laboratory?.id ?? '') !== filterLab)              return false
+    if (filterType && String(eq.equipmentType?.id ?? '') !== filterType)         return false
+    if (equipSearch && !([eq.assetTag, eq.brand, eq.model, eq.code]
+      .some(v => v?.toLowerCase().includes(equipSearch.toLowerCase())))) return false
     return true
   })
 
@@ -92,6 +81,8 @@ export default function NuevoCaso() {
         : [...prev.equipmentIds, id],
     }))
   }
+
+  const hasFilters = equipSearch || filterPC || filterLab || filterType
 
   const handleSubmit = async () => {
     setError('')
@@ -110,7 +101,6 @@ export default function NuevoCaso() {
         equipmentIds: form.equipmentIds,
       })
 
-      // Cambiar estado de equipos a "En mantenimiento"
       await Promise.allSettled(
         form.equipmentIds.map(eqId =>
           equipmentApi.patch(`/equipments/${eqId}/status`, { status: 'En mantenimiento' })
@@ -126,12 +116,21 @@ export default function NuevoCaso() {
     }
   }
 
+  // Laboratorios y tipos únicos para los selects
+  const labOptions = [...new Map(
+    equipments.filter(eq => eq.laboratory).map(eq => [eq.laboratory.id, eq.laboratory])
+  ).values()]
+
+  const typeOptions = [...new Map(
+    equipments.filter(eq => eq.equipmentType).map(eq => [eq.equipmentType.id, eq.equipmentType])
+  ).values()]
+
   return (
     <div className="fp-page">
       {/* Cabecera */}
       <div className="fp-header">
         <button className="fp-back-btn" onClick={() => navigate('/casos')}>
-          ← Volver a Casos
+          Volver a Casos
         </button>
         <div className="fp-heading">
           <h1 className="fp-title">Nuevo Caso de Mantenimiento</h1>
@@ -139,39 +138,47 @@ export default function NuevoCaso() {
         </div>
       </div>
 
-      {error   && <div className="fp-alert error">  <span>⚠️</span> {error}</div>}
-      {success && <div className="fp-alert success"><span>✓</span>  {success}</div>}
+      {error   && <div className="fp-alert error"><span>⚠️</span> {error}</div>}
+      {success && <div className="fp-alert success"><span>✓</span> {success}</div>}
 
       {loading ? (
         <div className="fp-empty">Cargando datos…</div>
       ) : (
         <>
-          {/* ── Datos del caso ── */}
+          {/* ── Card: Información del caso ── */}
           <div className="fp-card">
             <div className="fp-card-header">
-              <span className="fp-card-icon">📋</span>
+              <span className="fp-card-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+                  <line x1="9" y1="12" x2="15" y2="12"/>
+                  <line x1="9" y1="16" x2="15" y2="16"/>
+                </svg>
+              </span>
               <span className="fp-card-title">Información del caso</span>
             </div>
+
             <div className="fp-card-body">
-              <div className="fp-grid-2" style={{ marginBottom: 'var(--space-4)' }}>
+              {/* Fila: Código + Título */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2.5fr', gap: '16px 20px', marginBottom: 16 }}>
                 <div className="fp-field">
-                  <label className="fp-label">Código del caso (autogenerado)</label>
+                  <label className="fp-label">Código (autogenerado)</label>
                   <input className="fp-input fp-input-readonly" value={previewCode} readOnly />
                 </div>
-                <div className="fp-field" />
+                <div className="fp-field">
+                  <label className="fp-label">Título <span style={{ color: 'var(--color-primary)' }}>*</span></label>
+                  <input
+                    className="fp-input"
+                    value={form.title}
+                    onChange={e => setForm({ ...form, title: e.target.value })}
+                    placeholder="Ej: Falla en proyector del Laboratorio A"
+                  />
+                </div>
               </div>
 
-              <div className="fp-field fp-span-2" style={{ marginBottom: 'var(--space-4)' }}>
-                <label className="fp-label">Título *</label>
-                <input
-                  className="fp-input"
-                  value={form.title}
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  placeholder="Ej: Falla en proyector del Laboratorio A"
-                />
-              </div>
-
-              <div className="fp-field" style={{ marginBottom: 'var(--space-4)' }}>
+              {/* Descripción */}
+              <div className="fp-field" style={{ marginBottom: 16 }}>
                 <label className="fp-label">Descripción</label>
                 <textarea
                   className="fp-textarea"
@@ -181,9 +188,10 @@ export default function NuevoCaso() {
                 />
               </div>
 
-              <div className="fp-grid-2">
+              {/* Tipo + Prioridad */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 20px' }}>
                 <div className="fp-field">
-                  <label className="fp-label">Tipo de mantenimiento *</label>
+                  <label className="fp-label">Tipo de mantenimiento <span style={{ color: 'var(--color-primary)' }}>*</span></label>
                   <select
                     className="fp-select"
                     value={form.maintenanceType}
@@ -196,166 +204,116 @@ export default function NuevoCaso() {
 
                 <div className="fp-field">
                   <label className="fp-label">Prioridad</label>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 4 }}>
-                    {PRIORITIES.map(p => {
-                      const s = PRIORITY_STYLE[p]
-                      const selected = form.priority === p
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setForm({ ...form, priority: p })}
-                          style={{
-                            flex: 1,
-                            padding: '0.45rem',
-                            borderRadius: 'var(--radius-md)',
-                            border: `2px solid ${selected ? s.color : 'var(--color-border)'}`,
-                            background: selected ? s.bg : 'var(--color-surface)',
-                            color: selected ? s.color : 'var(--color-text-muted)',
-                            fontWeight: selected ? 700 : 400,
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                            transition: 'all var(--transition)',
-                          }}
-                        >
-                          {p}
-                        </button>
-                      )
-                    })}
+                  <div className="fp-priority-group">
+                    {PRIORITIES.map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`fp-priority-btn ${form.priority === p ? `active-${p.toLowerCase()}` : ''}`}
+                        onClick={() => setForm({ ...form, priority: p })}
+                      >
+                        {p}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Equipos involucrados ── */}
+          {/* ── Card: Equipos involucrados ── */}
           <div className="fp-card">
             <div className="fp-card-header">
-              <span className="fp-card-icon">🖥️</span>
+              <span className="fp-card-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              </span>
               <span className="fp-card-title">
                 Equipos involucrados
                 {form.equipmentIds.length > 0 && (
-                  <span style={{ marginLeft: 8, fontSize: '0.8rem', fontWeight: 400, color: 'var(--color-primary)' }}>
+                  <span style={{ marginLeft: 8, fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-primary)' }}>
                     {form.equipmentIds.length} seleccionado{form.equipmentIds.length !== 1 ? 's' : ''}
                   </span>
                 )}
               </span>
             </div>
+
             <div className="fp-card-body" style={{ paddingBottom: 0 }}>
-              {/* ── Filtros ── */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                {/* Búsqueda por AssetTag / marca / modelo */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  border: '1.5px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-bg)',
-                  flex: '1 1 200px',
-                }}>
-                  <span>🔍</span>
+              {/* Filtros */}
+              <div className="fp-filters">
+                {/* Buscar AssetTag */}
+                <div className="fp-filter-input-wrap">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
                   <input
-                    style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.875rem' }}
-                    placeholder="Buscar por AssetTag, marca o modelo…"
+                    placeholder="Buscar AssetTag…"
                     value={equipSearch}
                     onChange={e => setEquipSearch(e.target.value)}
                   />
                 </div>
 
-                {/* Filtro por PC (código) */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  border: '1.5px solid var(--color-border)',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-bg)',
-                  flex: '1 1 160px',
-                }}>
-                  <span>💻</span>
+                {/* Filtrar código PC */}
+                <div className="fp-filter-input-wrap">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                  </svg>
                   <input
-                    style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: '0.875rem' }}
-                    placeholder="Filtrar por código PC…"
+                    placeholder="Filtrar código PC…"
                     value={filterPC}
                     onChange={e => setFilterPC(e.target.value)}
                   />
                 </div>
 
-                {/* Filtro por Laboratorio */}
+                {/* Laboratorio */}
                 <select
-                  style={{
-                    padding: 'var(--space-2) var(--space-3)',
-                    border: '1.5px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-bg)',
-                    fontSize: '0.875rem',
-                    flex: '1 1 180px',
-                    color: filterLab ? 'var(--color-text)' : 'var(--color-text-muted)',
-                  }}
+                  className={`fp-filter-select ${filterLab ? 'has-value' : ''}`}
                   value={filterLab}
                   onChange={e => setFilterLab(e.target.value)}
                 >
-                  <option value="">🏫 Todos los laboratorios</option>
-                  {[...new Map(
-                    equipments
-                      .filter(eq => eq.laboratory)
-                      .map(eq => [eq.laboratory.id, eq.laboratory])
-                  ).values()].map(lab => (
+                  <option value="">Laboratorios</option>
+                  {labOptions.map(lab => (
                     <option key={lab.id} value={String(lab.id)}>
                       {lab.name}{lab.building ? ` — ${lab.building}` : ''}
                     </option>
                   ))}
                 </select>
 
-                {/* Filtro por Tipo de Dispositivo */}
+                {/* Tipo */}
                 <select
-                  style={{
-                    padding: 'var(--space-2) var(--space-3)',
-                    border: '1.5px solid var(--color-border)',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--color-bg)',
-                    fontSize: '0.875rem',
-                    flex: '1 1 180px',
-                    color: filterType ? 'var(--color-text)' : 'var(--color-text-muted)',
-                  }}
+                  className={`fp-filter-select ${filterType ? 'has-value' : ''}`}
                   value={filterType}
                   onChange={e => setFilterType(e.target.value)}
                 >
-                  <option value="">🖨️ Todos los tipos</option>
-                  {[...new Map(
-                    equipments
-                      .filter(eq => eq.equipmentType)
-                      .map(eq => [eq.equipmentType.id, eq.equipmentType])
-                  ).values()].map(t => (
+                  <option value="">Tipos</option>
+                  {typeOptions.map(t => (
                     <option key={t.id} value={String(t.id)}>{t.name}</option>
                   ))}
                 </select>
 
-                {/* Limpiar filtros */}
-                {(equipSearch || filterPC || filterLab || filterType) && (
+                {hasFilters && (
                   <button
                     type="button"
+                    className="fp-filter-clear"
                     onClick={() => { setEquipSearch(''); setFilterPC(''); setFilterLab(''); setFilterType('') }}
-                    style={{
-                      padding: 'var(--space-2) var(--space-3)',
-                      border: '1.5px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      background: 'var(--color-surface)',
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      color: 'var(--color-text-muted)',
-                    }}
                   >
-                    ✕ Limpiar filtros
+                    ✕ Limpiar
                   </button>
                 )}
               </div>
 
-              <div className="fp-equip-list" style={{ marginBottom: 'var(--space-5)' }}>
+              {/* Lista de equipos */}
+              <div className="fp-equip-list" style={{ marginBottom: 4 }}>
                 {available.length === 0 ? (
                   <div className="fp-empty">
                     {equipments.length === 0
                       ? 'No hay equipos en el sistema.'
-                      : (equipSearch || filterPC || filterLab || filterType)
+                      : hasFilters
                         ? 'Ningún equipo coincide con los filtros aplicados.'
                         : 'No hay equipos disponibles (todos están en mantenimiento o dados de baja).'}
                   </div>
@@ -369,30 +327,16 @@ export default function NuevoCaso() {
                         onClick={() => toggleEquipment(eq.id)}
                       >
                         <input type="checkbox" checked={selected} readOnly />
-                        <div className="fp-equip-name">
-                          <span style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            color: 'var(--color-primary)',
-                            background: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            marginRight: 6,
-                          }}>
-                            {eq.equipmentType?.name ?? '—'}
-                          </span>
-                          <strong>{eq.assetTag ?? '—'}</strong>
-                          {' · '}
-                          {eq.brand ?? '—'} {eq.model ?? '—'}
-                          {eq.code && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}> · {eq.code}</span>}
-                          {eq.laboratory?.name && (
-                            <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                              {' · '}{eq.laboratory.name}
-                            </span>
-                          )}
-                        </div>
+                        {eq.equipmentType?.name && (
+                          <span className="fp-equip-type-tag">{eq.equipmentType.name}</span>
+                        )}
+                        <span className="fp-equip-code">{eq.assetTag ?? '—'}</span>
+                        <span className="fp-equip-name">
+                          {eq.brand ?? '—'} {eq.model ?? ''}
+                        </span>
+                        {eq.code && (
+                          <span className="fp-equip-pc-code">{eq.code}</span>
+                        )}
                       </div>
                     )
                   })
@@ -401,9 +345,20 @@ export default function NuevoCaso() {
             </div>
 
             <div className="fp-actions">
-              <button className="fp-btn btn-secondary" onClick={() => navigate('/casos')}>Cancelar</button>
-              <button className="fp-btn btn-primary" onClick={handleSubmit} disabled={saving}>
-                {saving ? <><span className="fp-btn-spinner" /> Creando…</> : '✓ Crear caso'}
+              <button className="fp-btn btn-secondary" type="button" onClick={() => navigate('/casos')}>
+                Cancelar
+              </button>
+              <button className="fp-btn btn-primary" type="button" onClick={handleSubmit} disabled={saving}>
+                {saving
+                  ? <><span className="fp-btn-spinner" /> Creando…</>
+                  : <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="8 12 11 15 16 9"/>
+                      </svg>
+                      Crear caso
+                    </>
+                }
               </button>
             </div>
           </div>
