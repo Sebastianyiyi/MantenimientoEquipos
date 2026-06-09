@@ -239,16 +239,6 @@ export default function Usuarios() {
           options={estadoOptions}
           style={{ minWidth: '180px' }}
         />
-
-        <button className="btn-refresh" onClick={loadUsers} type="button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 2v6h-6" />
-            <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
-            <path d="M3 22v-6h6" />
-            <path d="M21 12a9 9 0 0 1-15.55 6.36L3 16" />
-          </svg>
-          Actualizar
-        </button>
       </div>
 
       <div className="usuarios-card">
