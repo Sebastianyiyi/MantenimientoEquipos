@@ -134,9 +134,9 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
     <div className="tt-container">
       <div className="tt-header">
         <h3 className="tt-title">Técnicos asignados</h3>
-        {!isClosed && availableToAdd.length > 0 && (
+        {!isClosed && (
           <button className="tt-btn tt-btn-primary" onClick={() => setShowAddForm(v => !v)}>
-            {showAddForm ? 'Cancelar' : '+ Nuevo'}
+            {showAddForm ? 'Cancelar' : '+ Agregar Técnico'}
           </button>
         )}
       </div>
@@ -161,26 +161,36 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
                 onFocus={() => setTechDropdownOpen(true)}
                 onBlur={() => setTimeout(() => setTechDropdownOpen(false), 150)}
               />
-              {techDropdownOpen && techSearch.trim() && (() => {
-                const filtered = availableToAdd.filter(t =>
-                  t.name.toLowerCase().includes(techSearch.toLowerCase())
+              {techDropdownOpen && (() => {
+                const filteredAll = availableTechnicians.filter(t =>
+                  !techSearch.trim() || t.name.toLowerCase().includes(techSearch.toLowerCase())
                 )
-                return filtered.length > 0 ? (
+                if (availableTechnicians.length === 0) return (
                   <ul className="tt-dropdown">
-                    {filtered.map(t => (
-                      <li
-                        key={t.id}
-                        className="tt-dropdown-item"
-                        onMouseDown={() => {
-                          setAddForm(f => ({ ...f, technicianUserId: t.id }))
-                          setTechSearch(t.name)
-                          setTechDropdownOpen(false)
-                        }}
-                      >
-                        <span className="tt-dropdown-avatar">{t.name.charAt(0).toUpperCase()}</span>
-                        {t.name}
-                      </li>
-                    ))}
+                    <li className="tt-dropdown-empty">No hay laboratoristas disponibles en el sistema.</li>
+                  </ul>
+                )
+                return filteredAll.length > 0 ? (
+                  <ul className="tt-dropdown">
+                    {filteredAll.map(t => {
+                      const yaAsignado = assignedIds.has(t.id)
+                      return (
+                        <li
+                          key={t.id}
+                          className={`tt-dropdown-item ${yaAsignado ? 'tt-dropdown-item-disabled' : ''}`}
+                          onMouseDown={() => {
+                            if (yaAsignado) return
+                            setAddForm(f => ({ ...f, technicianUserId: t.id }))
+                            setTechSearch(t.name)
+                            setTechDropdownOpen(false)
+                          }}
+                        >
+                          <span className="tt-dropdown-avatar">{t.name.charAt(0).toUpperCase()}</span>
+                          <span>{t.name}</span>
+                          {yaAsignado && <span className="tt-already-tag">Ya asignado</span>}
+                        </li>
+                      )
+                    })}
                   </ul>
                 ) : (
                   <ul className="tt-dropdown">
@@ -382,6 +392,8 @@ export default function TicketTechnicians({ ticketEquipmentId, ticketStatus, ava
         .tt-dropdown-item:hover { background: #eff6ff; color: #1d4ed8; }
         .tt-dropdown-avatar { width: 26px; height: 26px; border-radius: 50%; background: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; flex-shrink: 0; }
         .tt-dropdown-empty { padding: 10px; font-size: .82rem; color: #94a3b8; font-style: italic; text-align: center; }
+        .tt-dropdown-item-disabled { opacity: 0.55; cursor: not-allowed !important; background: transparent !important; }
+        .tt-already-tag { margin-left: auto; font-size: .7rem; background: #e5e7eb; color: #6b7280; border-radius: 4px; padding: 1px 6px; font-weight: 600; }
         .tt-selected-badge { display: inline-block; margin-top: 5px; font-size: .75rem; color: #166534; font-weight: 600; }
       `}</style>
     </div>
