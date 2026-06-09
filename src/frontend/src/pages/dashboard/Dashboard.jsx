@@ -66,6 +66,9 @@ export default function Dashboard() {
               {user?.role === 'Administrador' && (
                 <QuickLink to="/usuarios" icon="👥" label="Gestión de Usuarios" />
               )}
+              {user?.role === 'Administrador' && (
+                <QuickLink to="/reportes" icon="📄" label="Exportar Reportes" />
+              )}
             </div>
           </div>
         </>
