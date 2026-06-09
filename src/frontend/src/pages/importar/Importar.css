@@ -1,0 +1,436 @@
+/* ── Importar.css ── */
+
+.imp-page {
+  min-height: calc(100vh - 64px); /* Ajusta según tu header global */
+  background: #ffffff;
+  padding: 2.5rem 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.imp-page > * {
+  width: 100%;
+  max-width: 860px;
+}
+
+/* ── Encabezado ── */
+.imp-header {
+  margin-bottom: 2rem;
+}
+
+.imp-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.25rem;
+}
+
+.imp-header p {
+  font-size: 0.875rem;
+  color: #6B7280;
+}
+
+/* ── Error banner ── */
+.imp-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-left: 3px solid #EF4444;
+  color: #EF4444;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.imp-error button {
+  flex-shrink: 0;
+  color: #EF4444;
+  opacity: 0.6;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.imp-error button:hover { opacity: 1; }
+
+/* ── Tarjeta genérica (Usada para Preview y Resultado) ── */
+.imp-card {
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* =========================================
+   ESTILOS ESPECÍFICOS DEL PASO UPLOAD 
+   ========================================= */
+
+.imp-upload-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  width: 100%;
+}
+
+/* ── 1. Bloque de Instrucciones Independiente ── */
+.imp-info-box {
+  display: flex;
+  gap: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #F3F4F6;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.imp-info-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #FFF1F2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #E11D48;
+}
+
+.imp-info-body {
+  flex: 1;
+}
+
+.imp-info-body strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.imp-rules {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+}
+
+.imp-rules li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: #6B7280;
+}
+
+.imp-rules li::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #E11D48;
+}
+
+.imp-rules code {
+  font-family: 'Menlo', 'Consolas', monospace;
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  color: #374151;
+  padding: 0;
+}
+
+/* ── Etiquetas de paso compartidas ── */
+.imp-step-label {
+  flex-shrink: 0;
+  margin-bottom: 0.5rem;
+}
+
+.imp-step-label span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9CA3AF;
+}
+
+/* ── 2. Fila de Categoría (Horizontal) ── */
+.imp-step-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.imp-step-row .imp-step-label {
+  margin-bottom: 0; /* Quitar margen para que quede centrado con el input */
+}
+
+.imp-step-input {
+  width: 280px;
+}
+
+.imp-select {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  color: #4B5563;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B6B6B' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  transition: all 0.2s;
+}
+
+.imp-select:focus {
+  outline: none;
+  border-color: #E11D48;
+  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.1);
+}
+
+/* ── 3. Columna de Archivo y Dropzone ── */
+.imp-step-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.imp-dropzone {
+  border: 1.5px dashed #D1D5DB;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.imp-dropzone:hover,
+.imp-dropzone.drag-over {
+  border-color: #E11D48;
+  background: #FFF1F2;
+}
+
+.imp-dropzone.has-file {
+  border-color: #10B981;
+  background: #ECFDF5;
+}
+
+.imp-dropzone-icon-bg {
+  width: 48px;
+  height: 48px;
+  background-color: #F8FAFC;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.imp-dropzone-icon-bg.success-bg {
+  background-color: #D1FAE5;
+}
+
+.imp-dropzone-icon {
+  width: 24px;
+  height: 24px;
+  color: #94A3B8;
+}
+
+.imp-dropzone-icon.success-icon {
+  color: #10B981;
+}
+
+.imp-dropzone-title {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.imp-dropzone small {
+  font-size: 0.75rem;
+  color: #9CA3AF;
+}
+
+.imp-filename {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #10B981;
+}
+
+/* ── Acciones principales ── */
+.imp-actions-bottom {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.imp-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #E5E7EB;
+  margin-top: 1.5rem;
+}
+
+/* Botones */
+.imp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.25rem;
+  background: #C0191F; /* Negro/Oscuro por defecto, cámbialo a #E11D48 si tu principal es rojo */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.imp-btn-primary:hover:not(:disabled) { opacity: 0.9; }
+.imp-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.imp-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.6rem 1.25rem;
+  background: transparent;
+  border: 1px solid #D1D5DB;
+  color: #374151;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.imp-btn-secondary:hover { background: #F3F4F6; }
+
+/* =========================================
+   ESTILOS PREVIEW / RESULT 
+   ========================================= */
+
+.imp-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.imp-preview-meta h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.imp-preview-meta p {
+  font-size: 0.85rem;
+  color: #6B7280;
+}
+
+.imp-badge {
+  background: #F3F4F6;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+}
+
+.imp-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+}
+
+.imp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.imp-table thead th {
+  background: #F9FAFB;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6B7280;
+  border-bottom: 1px solid #E5E7EB;
+}
+
+.imp-table tbody tr { border-bottom: 1px solid #F3F4F6; }
+.imp-table tbody tr:last-child { border-bottom: none; }
+.imp-table tbody tr:hover { background: #F9FAFB; }
+
+.imp-table td {
+  padding: 0.75rem 1rem;
+  color: #374151;
+}
+
+.imp-table td:first-child { color: #9CA3AF; }
+
+.imp-result-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.imp-stat {
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid;
+}
+
+.imp-stat.success {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #10B981;
+}
+
+.imp-stat.neutral {
+  background: #F9FAFB;
+  border-color: #E5E7EB;
+  color: #6B7280;
+}
+
+.imp-stat-num {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.imp-stat-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.imp-result-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
