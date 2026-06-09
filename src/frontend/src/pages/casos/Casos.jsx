@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom'
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
 const STATUSES = ['Pendiente', 'En Proceso', 'Terminado']
+const PAGE_SIZE = 10
 
 const STATUS_COLORS = {
   Pendiente:    { bg: '#fef9c3', color: '#854d0e' },
@@ -36,6 +37,8 @@ export default function Casos() {
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType]     = useState('')
+  const [filterPriority, setFilterPriority] = useState('')
+  const [page, setPage] = useState(1)
   const [previewCode, setPreviewCode] = useState('')
 
   const [showForm, setShowForm]           = useState(false)
@@ -67,6 +70,7 @@ export default function Casos() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1) }, [search, filterStatus, filterType, filterPriority])
 
   const getCaseNumberValue = (ticketNumber) => {
     if (!ticketNumber) return 0
@@ -81,9 +85,13 @@ export default function Casos() {
         t.title?.toLowerCase().includes(search.toLowerCase())
       const matchStatus = !filterStatus || t.status === filterStatus
       const matchType = !filterType || t.maintenanceType === filterType
-      return matchSearch && matchStatus && matchType
+      const matchPriority = !filterPriority || t.priority === filterPriority
+      return matchSearch && matchStatus && matchType && matchPriority
     })
     .sort((a, b) => getCaseNumberValue(b.ticketNumber) - getCaseNumberValue(a.ticketNumber))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const occupiedEquipmentIds = new Set(
     tickets
@@ -241,6 +249,10 @@ export default function Casos() {
           <option value="">Todos los tipos</option>
           {MAINTENANCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
+        <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={selectStyle}>
+          <option value="">Todas las prioridades</option>
+          {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
       </div>
 
       {/* Tabla */}
@@ -259,7 +271,7 @@ export default function Casos() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(ticket => (
+              {paginated.map(ticket => (
                 <tr key={ticket.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={td}><code style={{ fontWeight: 600 }}>{ticket.ticketNumber}</code></td>
                   <td style={td}>{ticket.title}</td>
@@ -294,6 +306,26 @@ export default function Casos() {
               )}
             </tbody>
           </table>
+          {filtered.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ color: '#64748b' }}>
+                Mostrando {paginated.length} de {filtered.length} casos registrados
+              </span>
+              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button className="btn-secondary" disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button
+                    key={n}
+                    className={n === currentPage ? 'btn-primary' : 'btn-secondary'}
+                    onClick={() => setPage(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button className="btn-secondary" disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Siguiente</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -3,16 +3,23 @@ import { equipmentApi, userApi, locationApi } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
 
 const STATUSES = ['Activo', 'En mantenimiento', 'Dado de baja']
+const PAGE_SIZE = 10
 
 export default function Equipos() {
   const navigate = useNavigate()
   const [equipments, setEquipments]   = useState([])
   const [laboratories, setLaboratories] = useState([])
+  const [equipmentTypes, setEquipmentTypes] = useState([])
+  const [laboratoristas, setLaboratoristas] = useState([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState('')
   const [filterStatus, setFilterStatus]     = useState('')
   const [filterLaboratory, setFilterLaboratory] = useState('')
+  const [filterLaboratorista, setFilterLaboratorista] = useState('')
+  const [filterBrand, setFilterBrand] = useState('')
+  const [filterType, setFilterType] = useState('')
   const [search, setSearch]           = useState('')
+  const [page, setPage] = useState(1)
 
   const load = useCallback(async (searchTerm = search) => {
     try {
@@ -21,12 +28,17 @@ export default function Equipos() {
 
       const params = {}
       if (filterStatus) params.status = filterStatus
+      if (filterBrand) params.brand = filterBrand
+      if (filterType) params.equipmentTypeId = filterType
+      if (filterLaboratorista) params.laboratoristaUserId = filterLaboratorista
       if (searchTerm)   params.search = searchTerm
 
-      const [eqRes, labsRes, currentLocationsRes] = await Promise.allSettled([
+      const [eqRes, labsRes, currentLocationsRes, typesRes, usersRes] = await Promise.allSettled([
         equipmentApi.get('/equipments', { params }),
         locationApi.get('/laboratorios'),
         locationApi.get('/equipment-locations'),
+        equipmentApi.get('/equipment-types'),
+        userApi.get('/users'),
       ])
 
       if (eqRes.status !== 'fulfilled')               throw eqRes.reason
@@ -42,20 +54,27 @@ export default function Equipos() {
       })))
 
       if (labsRes.status === 'fulfilled') setLaboratories(labsRes.value.data)
+      if (typesRes.status === 'fulfilled') setEquipmentTypes(typesRes.value.data)
+      if (usersRes.status === 'fulfilled') {
+        setLaboratoristas((usersRes.value.data ?? []).filter(u => u.role === 'Laboratorista' && u.isActive))
+      }
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar datos.')
     } finally {
       setLoading(false)
     }
-  }, [filterStatus, search])
+  }, [filterStatus, filterBrand, filterType, filterLaboratorista, search])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1) }, [search, filterStatus, filterLaboratory, filterLaboratorista, filterBrand, filterType])
 
   const handleSearch = (e) => { e.preventDefault(); load(search) }
 
-  const displayed = filterLaboratory
-    ? equipments.filter(eq => eq.laboratory?.id === filterLaboratory)
-    : equipments
+  const brands = Array.from(new Set(equipments.map(eq => eq.brand).filter(Boolean))).sort()
+  const displayed = equipments.filter(eq => !filterLaboratory || eq.laboratory?.id === filterLaboratory)
+  const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = displayed.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -93,6 +112,33 @@ export default function Equipos() {
           />
           <button type="submit" className="btn-secondary">Buscar</button>
         </form>
+
+        <select
+          value={filterLaboratorista}
+          onChange={e => setFilterLaboratorista(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', minWidth: 180 }}
+        >
+          <option value="">Todos los laboratoristas</option>
+          {laboratoristas.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+        </select>
+
+        <select
+          value={filterBrand}
+          onChange={e => setFilterBrand(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', minWidth: 160 }}
+        >
+          <option value="">Todas las marcas</option>
+          {brands.map(brand => <option key={brand} value={brand}>{brand}</option>)}
+        </select>
+
+        <select
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          style={{ padding: '0.5rem', borderRadius: '6px', border: '1px solid #ddd', minWidth: 180 }}
+        >
+          <option value="">Todos los tipos</option>
+          {equipmentTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
 
         <select
           value={filterStatus}
@@ -136,7 +182,7 @@ export default function Equipos() {
               </tr>
             </thead>
             <tbody>
-              {displayed.map(eq => (
+              {paginated.map(eq => (
                 <tr key={eq.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={td}>{eq.code}</td>
                   <td style={td}>{eq.assetTag}</td>
@@ -201,6 +247,26 @@ export default function Equipos() {
               )}
             </tbody>
           </table>
+          {displayed.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ color: '#64748b' }}>
+                Mostrando {paginated.length} de {displayed.length} equipos registrados
+              </span>
+              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button className="btn-secondary" disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button
+                    key={n}
+                    className={n === currentPage ? 'btn-primary' : 'btn-secondary'}
+                    onClick={() => setPage(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button className="btn-secondary" disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Siguiente</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

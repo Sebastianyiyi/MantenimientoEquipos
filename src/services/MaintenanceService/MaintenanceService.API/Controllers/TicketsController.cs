@@ -24,10 +24,31 @@ public class TicketsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] string? maintenanceType,
+        [FromQuery] string? priority)
     {
-        var tickets = await _db.Tickets
+        var query = _db.Tickets
             .Include(t => t.TicketEquipments)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(t =>
+                t.TicketNumber.Contains(search) ||
+                t.Title.Contains(search));
+
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(t => t.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(maintenanceType))
+            query = query.Where(t => t.MaintenanceType == maintenanceType);
+
+        if (!string.IsNullOrWhiteSpace(priority))
+            query = query.Where(t => t.Priority == priority);
+
+        var tickets = await query
             .OrderByDescending(t => t.CreatedAt)
             .Select(t => new
             {
