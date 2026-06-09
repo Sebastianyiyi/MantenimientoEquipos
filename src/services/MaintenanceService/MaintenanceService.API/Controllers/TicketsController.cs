@@ -203,18 +203,70 @@ public class TicketsController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] CreateTicketDto dto)
     {
-        var ticket = await _db.Tickets.FindAsync(id);
+        var ticket = await _db.Tickets
+            .Include(t => t.TicketEquipments)
+            .FirstOrDefaultAsync(t => t.Id == id);
+
         if (ticket == null) return NotFound();
         if (ticket.Status == "Terminado")
             return BadRequest("No se puede editar un caso terminado.");
 
-        ticket.Title = dto.Title;
-        ticket.Description = dto.Description;
+        // ── Sincronizar equipos ──────────────────────────────────────────
+        var currentIds  = ticket.TicketEquipments.Select(te => te.EquipmentId).ToHashSet();
+        var incomingIds = dto.EquipmentIds.ToHashSet();
+
+        var toAdd    = incomingIds.Except(currentIds).ToList();
+        var toRemove = currentIds.Except(incomingIds).ToList();
+
+        // Agregar nuevos TicketEquipments
+        foreach (var eqId in toAdd)
+        {
+            _db.Set<TicketEquipment>().Add(new TicketEquipment
+            {
+                Id          = Guid.NewGuid(),
+                TicketId    = ticket.Id,
+                EquipmentId = eqId,
+                Status      = "Pendiente"
+            });
+        }
+
+        // Eliminar los que se quitaron (solo si no tienen actividad registrada)
+        foreach (var te in ticket.TicketEquipments.Where(te => toRemove.Contains(te.EquipmentId)))
+        {
+            _db.Set<TicketEquipment>().Remove(te);
+        }
+
+        // ── Campos básicos ───────────────────────────────────────────────
+        ticket.Title           = dto.Title;
+        ticket.Description     = dto.Description;
         ticket.MaintenanceType = dto.MaintenanceType;
-        ticket.Priority = dto.Priority;
-        ticket.UpdatedAt = DateTime.Now;
+        ticket.Priority        = dto.Priority;
+        ticket.UpdatedAt       = DateTime.Now;
 
         await _db.SaveChangesAsync();
-        return Ok(ticket);
+
+        // ── Sincronizar estado en EquipmentService ───────────────────────
+        try
+        {
+            var client     = _httpClientFactory.CreateClient();
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (!string.IsNullOrEmpty(authHeader))
+                client.DefaultRequestHeaders.Add("Authorization", authHeader);
+
+            // Nuevos equipos → "En mantenimiento"
+            foreach (var eqId in toAdd)
+                await client.PatchAsJsonAsync(
+                    $"http://localhost:5002/api/equipments/{eqId}/status",
+                    new { status = "En mantenimiento" });
+
+            // Equipos removidos → "Activo"
+            foreach (var eqId in toRemove)
+                await client.PatchAsJsonAsync(
+                    $"http://localhost:5002/api/equipments/{eqId}/status",
+                    new { status = "Activo" });
+        }
+        catch { /* silencioso */ }
+
+        return Ok(new { ticket.Id, ticket.TicketNumber, ticket.UpdatedAt });
     }
 }
