@@ -13,6 +13,7 @@ import Importar from './pages/importar/Importar'
 import Usuarios from './pages/usuarios/Usuarios'
 import Casos from './pages/casos/Casos'
 import HojaDeVida from './pages/hojadevida/HojaDeVida'
+import Reportes from './pages/reportes/Reportes'
 import Reemplazo from './pages/reemplazo/Reemplazo'
 import NuevoEquipo from './pages/equipos/nuevo/NuevoEquipo'
 import EditarEquipo from './pages/equipos/editar/EditarEquipo'
@@ -37,6 +38,7 @@ function App() {
             <Route path="/equipos/importar" element={<Importar />} />
             <Route path="/casos" element={<Casos />} />
             <Route path="/equipos/:id/hoja-de-vida" element={<HojaDeVida />} />
+            <Route path="/reportes" element={<Reportes />} />
             <Route path="/equipos/nuevo" element={<NuevoEquipo />} />
             <Route path="/equipos/:id/ficha" element={<FichaEquipo />} />
             <Route path="/equipos/:id/editar" element={<EditarEquipo />} />
