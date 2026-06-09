@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { equipmentApi, locationApi, maintenanceApi } from '../../services/api'
 import './Catalogos.css'
+import CustomSelect from '../../components/CustomSelect'
 
 export default function Catalogos() {
   const [tab, setTab] = useState('tipos')
@@ -12,15 +13,33 @@ export default function Catalogos() {
 
       <div className="catalogos-tabs">
         <button className={`tab-btn ${tab === 'tipos' ? 'active' : ''}`} onClick={() => setTab('tipos')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
           Tipos de Equipo
         </button>
         <button className={`tab-btn ${tab === 'laboratorios' ? 'active' : ''}`} onClick={() => setTab('laboratorios')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
           Laboratorios
         </button>
         <button className={`tab-btn ${tab === 'activities' ? 'active' : ''}`} onClick={() => setTab('activities')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
           Actividades
         </button>
         <button className={`tab-btn ${tab === 'diagnoses' ? 'active' : ''}`} onClick={() => setTab('diagnoses')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
           Diagnósticos
         </button>
       </div>
@@ -548,17 +567,24 @@ function Laboratorios() {
                 <div className="capacity-row" key={row.capacityId ?? idx}>
                   <div>
                     <label>Tipo de equipo</label>
-                    <select
+                    <CustomSelect
                       value={row.equipmentTypeId}
-                      onChange={e => updateCapacityRow(idx, 'equipmentTypeId', e.target.value)}
-                    >
-                      <option value="">Selecciona uno</option>
-                      {equipmentTypes.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => updateCapacityRow(idx, 'equipmentTypeId', val)}
+                      options={[
+                        { value: '', label: 'Selecciona uno' },
+                        ...equipmentTypes.map(t => ({
+                          value: t.id,
+                          label: t.name,
+                          icon: (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                            </svg>
+                          ),
+                          iconColor: '#2563eb'
+                        }))
+                      ]}
+                      style={{ width: '100%' }}
+                    />
                   </div>
 
                   <div>
@@ -759,17 +785,87 @@ function CatalogActivities() {
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
 
             <label>Categoría *</label>
-            <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              {ACTIVITY_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <CustomSelect
+              value={form.category}
+              onChange={val => setForm({ ...form, category: val })}
+              options={[
+                {
+                  value: 'Correctivo',
+                  label: 'Correctivo',
+                  badgeColor: '#991b1b',
+                  badgeBg: '#fee2e2',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    </svg>
+                  ),
+                  iconColor: '#991b1b'
+                },
+                {
+                  value: 'Preventivo',
+                  label: 'Preventivo',
+                  badgeColor: '#075985',
+                  badgeBg: '#e0f2fe',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  ),
+                  iconColor: '#075985'
+                },
+                {
+                  value: 'Adaptativo',
+                  label: 'Adaptativo',
+                  badgeColor: '#6b21a8',
+                  badgeBg: '#f3e8ff',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                    </svg>
+                  ),
+                  iconColor: '#6b21a8'
+                }
+              ]}
+              style={{ width: '100%' }}
+            />
 
             {editing && (
               <>
                 <label>Estado</label>
-                <select value={form.isActive ? 'true' : 'false'} onChange={e => setForm({ ...form, isActive: e.target.value === 'true' })}>
-                  <option value="true">Activo</option>
-                  <option value="false">Inactivo</option>
-                </select>
+                <CustomSelect
+                  value={form.isActive ? 'true' : 'false'}
+                  onChange={val => setForm({ ...form, isActive: val === 'true' })}
+                  options={[
+                    {
+                      value: 'true',
+                      label: 'Activo',
+                      badgeColor: '#166534',
+                      badgeBg: '#dcfce7',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      ),
+                      iconColor: '#166534'
+                    },
+                    {
+                      value: 'false',
+                      label: 'Inactivo',
+                      badgeColor: '#64748b',
+                      badgeBg: '#f1f5f9',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      ),
+                      iconColor: '#64748b'
+                    }
+                  ]}
+                  style={{ width: '100%' }}
+                />
               </>
             )}
 
@@ -919,17 +1015,87 @@ function CatalogDiagnoses() {
             <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
 
             <label>Severidad *</label>
-            <select value={form.severity} onChange={e => setForm({ ...form, severity: e.target.value })}>
-              {DIAGNOSIS_SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <CustomSelect
+              value={form.severity}
+              onChange={val => setForm({ ...form, severity: val })}
+              options={[
+                {
+                  value: 'Baja',
+                  label: 'Baja',
+                  badgeColor: '#166534',
+                  badgeBg: '#f0fdf4',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  ),
+                  iconColor: '#166534'
+                },
+                {
+                  value: 'Media',
+                  label: 'Media',
+                  badgeColor: '#854d0e',
+                  badgeBg: '#fef9c3',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  ),
+                  iconColor: '#854d0e'
+                },
+                {
+                  value: 'Alta',
+                  label: 'Alta',
+                  badgeColor: '#991b1b',
+                  badgeBg: '#fee2e2',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                  ),
+                  iconColor: '#991b1b'
+                }
+              ]}
+              style={{ width: '100%' }}
+            />
 
             {editing && (
               <>
                 <label>Estado</label>
-                <select value={form.isActive ? 'true' : 'false'} onChange={e => setForm({ ...form, isActive: e.target.value === 'true' })}>
-                  <option value="true">Activo</option>
-                  <option value="false">Inactivo</option>
-                </select>
+                <CustomSelect
+                  value={form.isActive ? 'true' : 'false'}
+                  onChange={val => setForm({ ...form, isActive: val === 'true' })}
+                  options={[
+                    {
+                      value: 'true',
+                      label: 'Activo',
+                      badgeColor: '#166534',
+                      badgeBg: '#dcfce7',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      ),
+                      iconColor: '#166534'
+                    },
+                    {
+                      value: 'false',
+                      label: 'Inactivo',
+                      badgeColor: '#64748b',
+                      badgeBg: '#f1f5f9',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      ),
+                      iconColor: '#64748b'
+                    }
+                  ]}
+                  style={{ width: '100%' }}
+                />
               </>
             )}
 

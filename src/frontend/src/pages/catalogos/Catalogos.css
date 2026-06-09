@@ -24,6 +24,9 @@
 }
 
 .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #d1d5db;
   background: #ffffff;
   color: #374151;

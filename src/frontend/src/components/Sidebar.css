@@ -49,7 +49,7 @@
   transition: all var(--transition);
 }
 
-.sidebar-link i { width: 18px; height: 18px; }
+.sidebar-link i, .sidebar-link svg { width: 18px; height: 18px; }
 
 .sidebar-link:hover {
   background: var(--color-bg);
@@ -61,7 +61,7 @@
   color: var(--color-primary);
 }
 
-.sidebar-link.active i { stroke: var(--color-primary); }
+.sidebar-link.active i, .sidebar-link.active svg { stroke: var(--color-primary); }
 
 .sidebar-logout {
   display: flex;
@@ -76,7 +76,11 @@
   width: 100%;
 }
 
+.sidebar-logout svg { width: 18px; height: 18px; }
+
 .sidebar-logout:hover {
   background: var(--color-primary-highlight);
   color: var(--color-primary);
 }
+
+.sidebar-logout:hover svg { stroke: var(--color-primary); }
