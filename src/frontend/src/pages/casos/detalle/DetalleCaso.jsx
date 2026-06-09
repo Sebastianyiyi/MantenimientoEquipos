@@ -5,6 +5,7 @@ import { maintenanceApi, equipmentApi, userApi } from '../../../services/api'
 import TicketTechnicians from '../../mantenimiento/TicketTechnicians'
 import TicketResources from '../../mantenimiento/TicketResources'
 import TicketActivitiesDiagnoses from '../../mantenimiento/TicketActivitiesDiagnoses'
+import BackButton from '../../../components/BackButton'
 import '../../FormPage.css'
 import './DetalleCaso.css'
 
@@ -338,8 +339,8 @@ export default function DetalleCaso() {
   if (error || !ticket) {
     return (
       <div className="fp-page">
+        <BackButton to="/casos" label="Volver a Casos" />
         <div className="fp-alert error"><span>⚠️</span> {error || 'Caso no encontrado.'}</div>
-        <button className="fp-back-btn" onClick={() => navigate('/casos')}>← Volver a Casos</button>
       </div>
     )
   }
@@ -347,6 +348,7 @@ export default function DetalleCaso() {
   return (
     <div className="dc-page">
       <style>{`@keyframes repSpin { to { transform: rotate(360deg) } }`}</style>
+      <BackButton to="/casos" label="Volver a Casos" />
 
       {/* ── Cabecera ── */}
       <div className="dc-topbar">
@@ -361,9 +363,6 @@ export default function DetalleCaso() {
 
       <div className="dc-header">
         <div className="dc-header-left">
-          <button className="dc-back-btn" onClick={() => navigate('/casos')}>
-            ← Volver a Casos
-          </button>
           <div>
             <h1 className="dc-title">Detalle del Caso</h1>
             <span className="dc-case-number">{ticket.ticketNumber}</span>

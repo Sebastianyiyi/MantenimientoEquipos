@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
+import BackButton from '../../components/BackButton'
 import './HojaDeVida.css'
 
 const TIPO_COLOR = {
@@ -315,9 +316,9 @@ export default function HojaDeVida() {
   if (error) {
     return (
       <div className="hdv-page">
+        <BackButton to="/equipos" label="Volver a Equipos" />
         <div className="hdv-error">
           <p>{error}</p>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>← Volver</button>
         </div>
       </div>
     )
@@ -328,11 +329,9 @@ export default function HojaDeVida() {
 
   return (
     <div className="hdv-page">
+      <BackButton to="/equipos" label="Volver a Equipos" />
       <div className="hdv-topbar">
         <div className="hdv-topbar-left">
-          <button className="hdv-back-btn" onClick={() => navigate('/equipos')}>
-            ← Gestión de Equipos
-          </button>
           <div>
             <h1 className="hdv-title">Hoja de Vida del Equipo</h1>
             <p className="hdv-subtitle">Historial técnico consolidado del activo institucional</p>

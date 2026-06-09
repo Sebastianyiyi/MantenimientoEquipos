@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { equipmentApi, locationApi } from '../../../services/api'
+import BackButton from '../../../components/BackButton'
 import '../../FormPage.css'
 
 const STATUS_STYLE = {
@@ -193,26 +194,7 @@ export default function FichaEquipo() {
         padding: '2rem 1.25rem 3rem',
       }}
     >
-      <div style={{ marginBottom: '1.25rem' }}>
-        <button
-          className="fp-back-btn"
-          onClick={() => navigate('/equipos')}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#9ca3af',
-            fontWeight: 600,
-            padding: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            cursor: 'pointer',
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}></span>
-          Volver a Equipos
-        </button>
-      </div>
+      <BackButton to="/equipos" label="Volver a Equipos" />
 
       <div
         className="fp-header"
@@ -517,16 +499,6 @@ export default function FichaEquipo() {
           flexWrap: 'wrap',
         }}
       >
-        <button
-          style={{
-            ...actionBtn,
-            minWidth: '96px',
-            justifyContent: 'center',
-          }}
-          onClick={() => navigate('/equipos')}
-        >
-          Volver
-        </button>
 
         <button
           style={{

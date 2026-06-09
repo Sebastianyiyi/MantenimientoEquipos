@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { equipmentApi, userApi, locationApi } from '../../../services/api'
+import BackButton from '../../../components/BackButton'
 import '../../FormPage.css'
 
 export default function EditarEquipo() {
@@ -273,12 +274,7 @@ export default function EditarEquipo() {
 
   return (
     <div className="fp-page" style={pageStyle}>
-      <div style={{ marginBottom: '1.2rem' }}>
-        <button className="fp-back-btn" onClick={() => navigate('/equipos')} style={iconButtonStyle}>
-          <span style={{ fontSize: '1rem' }}></span>
-          Volver a Equipos
-        </button>
-      </div>
+      <BackButton to="/equipos" label="Volver a Equipos" />
 
       <div style={{ marginBottom: '2.1rem' }}>
         <h1

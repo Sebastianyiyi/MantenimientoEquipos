@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../contexts/AuthContext'
 import { maintenanceApi, equipmentApi, locationApi } from '../../../services/api'
+import BackButton from '../../../components/BackButton'
 import '../../casos/editar/EditarCaso.css'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
@@ -155,11 +156,9 @@ export default function NuevoCaso() {
 
   return (
     <div className="ec-page">
+      <BackButton to="/casos" label="Volver a Casos" />
       {/* ── Header ── */}
       <div className="ec-header">
-        <button className="ec-back" onClick={() => navigate('/casos')}>
-          ← Volver a Casos
-        </button>
         <h1 className="ec-title">Nuevo Caso de Mantenimiento</h1>
         <p className="ec-subtitle">Registra una orden de trabajo para los equipos afectados</p>
       </div>

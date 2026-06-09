@@ -1,0 +1,67 @@
+/* ── BackButton – botón de regreso unificado ── */
+
+.back-btn {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 200;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  padding: 0.45rem 0.85rem 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+
+  font-family: var(--font-body, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  text-decoration: none;
+}
+
+.back-btn:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-highlight, #f5d5d6);
+  box-shadow: 0 2px 8px rgba(192, 25, 31, 0.12);
+}
+
+.back-btn:active {
+  background: var(--color-primary-highlight, #f5d5d6);
+  color: var(--color-primary-active, #800e12);
+}
+
+.back-btn__icon {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.back-btn:hover .back-btn__icon {
+  transform: translateX(-2px);
+}
+
+/* Ocultar en impresión */
+@media print {
+  .back-btn {
+    display: none !important;
+  }
+}
+
+/* En pantallas muy pequeñas ocultar el texto, solo icono */
+@media (max-width: 400px) {
+  .back-btn span {
+    display: none;
+  }
+  .back-btn {
+    padding: 0.5rem;
+    border-radius: 50%;
+  }
+}

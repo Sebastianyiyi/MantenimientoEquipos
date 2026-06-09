@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { equipmentApi, userApi, locationApi } from '../../../services/api'
+import BackButton from '../../../components/BackButton'
 import '../../FormPage.css'
 
 function DeviceIcon(props) {
@@ -186,6 +187,7 @@ export default function NuevoEquipo() {
 
   return (
     <div className="fp-page fp-page-device">
+      <BackButton to="/equipos" label="Volver a Equipos" />
       <div className="fp-heading fp-heading-simple">
         <h1 className="fp-title">Registrar Nuevo Equipo</h1>
         <p className="fp-subtitle">
