@@ -8,15 +8,15 @@ import {
 
 /* ─── Colores ───────────────────────────────────────────── */
 const C = {
-  red:    '#c0191f',
-  blue:   '#3b82f6',
-  green:  '#16a34a',
-  amber:  '#d97706',
+  red: '#c0191f',
+  blue: '#3b82f6',
+  green: '#16a34a',
+  amber: '#d97706',
   purple: '#7c3aed',
   border: 'var(--border)',
-  bg:     'var(--bg)',
-  text:   'var(--text)',
-  textH:  'var(--text-h)',
+  bg: 'var(--bg)',
+  text: 'var(--text)',
+  textH: 'var(--text-h)',
 }
 
 const TYPE_COLORS = ['#c0191f', '#3b82f6', '#d97706', '#16a34a', '#7c3aed', '#0891b2']
@@ -87,18 +87,18 @@ function DonutLegend({ data, total }) {
 
 /* ─── Alerta item ───────────────────────────────────────── */
 const PRIORITY_DOT = { Alta: C.red, Media: C.amber, Baja: C.green }
-const STATUS_DOT   = { Pendiente: C.amber, 'En Proceso': C.blue, Terminado: C.green }
+const STATUS_DOT = { Pendiente: C.amber, 'En Proceso': C.blue, Terminado: C.green }
 
 function AlertItem({ ticket }) {
   const dot = PRIORITY_DOT[ticket.priority] ?? STATUS_DOT[ticket.status] ?? C.text
   const timeAgo = ticket.createdAt
     ? (() => {
-        const diff = Date.now() - new Date(ticket.createdAt)
-        const h = Math.floor(diff / 3600000)
-        if (h < 1) return 'Hace menos de 1h'
-        if (h < 24) return `Hace ${h}h`
-        return `Hace ${Math.floor(h / 24)}d`
-      })()
+      const diff = Date.now() - new Date(ticket.createdAt)
+      const h = Math.floor(diff / 3600000)
+      if (h < 1) return 'Hace menos de 1h'
+      if (h < 24) return `Hace ${h}h`
+      return `Hace ${Math.floor(h / 24)}d`
+    })()
     : ''
   return (
     <div style={{ display: 'flex', gap: '0.75rem', paddingBottom: '0.85rem', borderBottom: `1px solid ${C.border}` }}>
@@ -128,7 +128,7 @@ function Skeleton({ h = '100%', w = '100%', r = '8px' }) {
 
 /* ─── Página ────────────────────────────────────────────── */
 export default function Dashboard() {
-  const [stats,   setStats]   = useState(null)
+  const [stats, setStats] = useState(null)
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -144,10 +144,10 @@ export default function Dashboard() {
 
   /* ── Derived data ── */
   const statusBarData = stats ? [
-    { name: 'Activos',       value: stats.activos         ?? 0, color: C.green  },
-    { name: 'Mantenimiento', value: stats.enMantenimiento ?? 0, color: C.amber  },
-    { name: 'En Pausa',      value: stats.enPausa         ?? 0, color: C.purple },
-    { name: 'Bajas',         value: stats.dadosDeBaja     ?? 0, color: C.red    },
+    { name: 'Activos', value: stats.activos ?? 0, color: C.green },
+    { name: 'Mantenimiento', value: stats.enMantenimiento ?? 0, color: C.amber },
+    { name: 'En Pausa', value: stats.enPausa ?? 0, color: C.purple },
+    { name: 'Bajas', value: stats.dadosDeBaja ?? 0, color: C.red },
   ] : []
 
   const typeDonutData = stats?.porTipo?.map(t => ({ name: t.tipo, value: t.cantidad })) ?? []
@@ -155,7 +155,7 @@ export default function Dashboard() {
   /* Evolución mensual derivada de tickets */
   const monthlyData = (() => {
     const map = {}
-    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
     tickets.forEach(t => {
       if (!t.createdAt) return
       const d = new Date(t.createdAt)
@@ -177,13 +177,20 @@ export default function Dashboard() {
     .slice(0, 5)
 
   /* Tasas */
-  const resolved   = tickets.filter(t => t.status === 'Terminado').length
-  const resRate    = tickets.length ? Math.round((resolved / tickets.length) * 100) : null
-  const pending    = tickets.filter(t => t.status === 'Pendiente').length
+  const resolved = tickets.filter(t => t.status === 'Terminado').length
+  const resRate = tickets.length ? Math.round((resolved / tickets.length) * 100) : null
+  const pending = tickets.filter(t => t.status === 'Pendiente').length
   const inProgress = tickets.filter(t => t.status === 'En Proceso').length
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1100px' }}>
+    <div
+      style={{
+        width: '100%',
+        maxWidth: '1180px',
+        margin: '0 auto',
+        padding: '2rem 1.5rem 2.5rem',
+      }}
+    >
 
       {/* shimmer keyframe */}
       <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
@@ -209,14 +216,14 @@ export default function Dashboard() {
 
           {/* ── Fila 1: KPIs ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <KPI title="Inventario Total"   value={stats.total}            icon="🖥️"
-                 sub="+4 registros esta semana" subColor={C.blue} />
-            <KPI title="Operatividad"       value={stats.activos}          icon="✅"
-                 sub={`${stats.total ? Math.round((stats.activos/stats.total)*100) : 0}% salud de red`} subColor={C.green} />
-            <KPI title="Atención"           value={stats.enMantenimiento}  icon="⚠️"
-                 sub="Mantenimientos críticos" subColor={C.amber} />
-            <KPI title="Retirados"          value={stats.dadosDeBaja}      icon="🗑️"
-                 sub="Bajas este trimestre"    subColor={C.red} />
+            <KPI title="Inventario Total" value={stats.total} icon="🖥️"
+              sub="+4 registros esta semana" subColor={C.blue} />
+            <KPI title="Operatividad" value={stats.activos} icon="✅"
+              sub={`${stats.total ? Math.round((stats.activos / stats.total) * 100) : 0}% salud de red`} subColor={C.green} />
+            <KPI title="Atención" value={stats.enMantenimiento} icon="⚠️"
+              sub="Mantenimientos críticos" subColor={C.amber} />
+            <KPI title="Retirados" value={stats.dadosDeBaja} icon="🗑️"
+              sub="Bajas este trimestre" subColor={C.red} />
           </div>
 
           {/* ── Fila 2: Barras + Donut ── */}
@@ -247,7 +254,7 @@ export default function Dashboard() {
                     <ResponsiveContainer width={160} height={160}>
                       <PieChart>
                         <Pie data={typeDonutData} cx={75} cy={75} innerRadius={50} outerRadius={72}
-                             dataKey="value" stroke="none" paddingAngle={2}>
+                          dataKey="value" stroke="none" paddingAngle={2}>
                           {typeDonutData.map((_, i) => <Cell key={i} fill={TYPE_COLORS[i % TYPE_COLORS.length]} />)}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
@@ -284,8 +291,8 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 10, fill: C.text }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Line type="monotone" dataKey="casos" stroke={C.red} strokeWidth={2}
-                          dot={{ r: 4, fill: C.red, stroke: C.bg, strokeWidth: 2 }}
-                          activeDot={{ r: 6 }} />
+                      dot={{ r: 4, fill: C.red, stroke: C.bg, strokeWidth: 2 }}
+                      activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -351,8 +358,8 @@ export default function Dashboard() {
                 </div>
                 {['Pendiente', 'En Proceso', 'Terminado'].map(status => {
                   const total = tickets.filter(t => t.status === status).length
-                  const done  = status === 'Terminado' ? total : 0
-                  const eff   = total ? Math.round((done / total) * 100) : 0
+                  const done = status === 'Terminado' ? total : 0
+                  const eff = total ? Math.round((done / total) * 100) : 0
                   return (
                     <div key={status} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem', padding: '0.6rem 0', borderTop: `1px solid ${C.border}` }}>
                       <span style={{ fontSize: '0.83rem', color: C.textH }}>{status}</span>
