@@ -2,10 +2,176 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { maintenanceApi, equipmentApi } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
+import CustomSelect from '../../components/CustomSelect'
 
 const MAINTENANCE_TYPES = ['Correctivo', 'Preventivo', 'Adaptativo']
 const PRIORITIES = ['Baja', 'Media', 'Alta']
 const STATUSES = ['Pendiente', 'En Proceso', 'Terminado']
+
+const statusOptions = [
+  { 
+    value: '', 
+    label: 'Todos los estados',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle' }}>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        <path d="M2 12h20" />
+      </svg>
+    ),
+    iconColor: '#64748b'
+  },
+  { 
+    value: 'Pendiente', 
+    label: 'Pendiente', 
+    badgeColor: '#854d0e',
+    badgeBg: '#fef9c3',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+    iconColor: '#854d0e'
+  },
+  { 
+    value: 'En Proceso', 
+    label: 'En Proceso', 
+    badgeColor: '#1e40af',
+    badgeBg: '#dbeafe',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+      </svg>
+    ),
+    iconColor: '#1e40af'
+  },
+  { 
+    value: 'Terminado', 
+    label: 'Terminado', 
+    badgeColor: '#166534',
+    badgeBg: '#dcfce7',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
+    ),
+    iconColor: '#166534'
+  }
+]
+
+const typeOptions = [
+  { 
+    value: '', 
+    label: 'Todos los tipos',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle' }}>
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </svg>
+    ),
+    iconColor: '#64748b'
+  },
+  { 
+    value: 'Correctivo', 
+    label: 'Correctivo', 
+    badgeColor: '#991b1b',
+    badgeBg: '#fee2e2',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+    iconColor: '#991b1b'
+  },
+  { 
+    value: 'Preventivo', 
+    label: 'Preventivo', 
+    badgeColor: '#075985',
+    badgeBg: '#e0f2fe',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
+    iconColor: '#075985'
+  },
+  { 
+    value: 'Adaptativo', 
+    label: 'Adaptativo', 
+    badgeColor: '#6b21a8',
+    badgeBg: '#f3e8ff',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" />
+        <line x1="9" y1="1" x2="9" y2="4" />
+        <line x1="15" y1="1" x2="15" y2="4" />
+        <line x1="9" y1="20" x2="9" y2="23" />
+        <line x1="15" y1="20" x2="15" y2="23" />
+        <line x1="20" y1="9" x2="23" y2="9" />
+        <line x1="20" y1="15" x2="23" y2="15" />
+        <line x1="1" y1="9" x2="4" y2="9" />
+        <line x1="1" y1="15" x2="4" y2="15" />
+      </svg>
+    ),
+    iconColor: '#6b21a8'
+  }
+]
+
+const priorityOptions = [
+  { 
+    value: '', 
+    label: 'Todas las prioridades',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle' }}>
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+        <line x1="4" y1="22" x2="4" y2="15" />
+      </svg>
+    ),
+    iconColor: '#64748b'
+  },
+  { 
+    value: 'Baja', 
+    label: 'Baja', 
+    badgeColor: '#166534',
+    badgeBg: '#f0fdf4',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    ),
+    iconColor: '#166534'
+  },
+  { 
+    value: 'Media', 
+    label: 'Media', 
+    badgeColor: '#854d0e',
+    badgeBg: '#fef9c3',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </svg>
+    ),
+    iconColor: '#854d0e'
+  },
+  { 
+    value: 'Alta', 
+    label: 'Alta', 
+    badgeColor: '#991b1b',
+    badgeBg: '#fee2e2',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <polyline points="18 15 12 9 6 15" />
+      </svg>
+    ),
+    iconColor: '#991b1b'
+  }
+]
+const PAGE_SIZE = 10
 
 const STATUS_COLORS = {
   Pendiente:    { bg: '#fef9c3', color: '#854d0e' },
@@ -36,6 +202,8 @@ export default function Casos() {
   const [search, setSearch]         = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterType, setFilterType]     = useState('')
+  const [filterPriority, setFilterPriority] = useState('')
+  const [page, setPage] = useState(1)
   const [previewCode, setPreviewCode] = useState('')
 
   const [showForm, setShowForm]           = useState(false)
@@ -67,6 +235,7 @@ export default function Casos() {
   }, [])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => { setPage(1) }, [search, filterStatus, filterType, filterPriority])
 
   const getCaseNumberValue = (ticketNumber) => {
     if (!ticketNumber) return 0
@@ -81,9 +250,13 @@ export default function Casos() {
         t.title?.toLowerCase().includes(search.toLowerCase())
       const matchStatus = !filterStatus || t.status === filterStatus
       const matchType = !filterType || t.maintenanceType === filterType
-      return matchSearch && matchStatus && matchType
+      const matchPriority = !filterPriority || t.priority === filterPriority
+      return matchSearch && matchStatus && matchType && matchPriority
     })
     .sort((a, b) => getCaseNumberValue(b.ticketNumber) - getCaseNumberValue(a.ticketNumber))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   const occupiedEquipmentIds = new Set(
     tickets
@@ -226,21 +399,31 @@ export default function Casos() {
       )}
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           placeholder="Buscar por código o título..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: 200, padding: '0.5rem', borderRadius: 6, border: '1px solid #ddd' }}
+          style={{ flex: 1, minWidth: 200, padding: '0.55rem', borderRadius: 6, border: '1px solid #ddd', fontSize: '0.875rem' }}
         />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={selectStyle}>
-          <option value="">Todos los estados</option>
-          {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={filterType} onChange={e => setFilterType(e.target.value)} style={selectStyle}>
-          <option value="">Todos los tipos</option>
-          {MAINTENANCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <CustomSelect
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={statusOptions}
+          style={{ minWidth: '180px' }}
+        />
+        <CustomSelect
+          value={filterType}
+          onChange={setFilterType}
+          options={typeOptions}
+          style={{ minWidth: '180px' }}
+        />
+        <CustomSelect
+          value={filterPriority}
+          onChange={setFilterPriority}
+          options={priorityOptions}
+          style={{ minWidth: '180px' }}
+        />
       </div>
 
       {/* Tabla */}
@@ -259,7 +442,7 @@ export default function Casos() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(ticket => (
+              {paginated.map(ticket => (
                 <tr key={ticket.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={td}><code style={{ fontWeight: 600 }}>{ticket.ticketNumber}</code></td>
                   <td style={td}>{ticket.title}</td>
@@ -294,6 +477,26 @@ export default function Casos() {
               )}
             </tbody>
           </table>
+          {filtered.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 0', gap: '1rem', flexWrap: 'wrap' }}>
+              <span style={{ color: '#64748b' }}>
+                Mostrando {paginated.length} de {filtered.length} casos registrados
+              </span>
+              <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <button className="btn-secondary" disabled={currentPage === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>Anterior</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button
+                    key={n}
+                    className={n === currentPage ? 'btn-primary' : 'btn-secondary'}
+                    onClick={() => setPage(n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button className="btn-secondary" disabled={currentPage === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>Siguiente</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

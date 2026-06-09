@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { maintenanceApi, equipmentApi, userApi } from '../../services/api'
+import BackButton from '../../components/BackButton'
 import './HojaDeVida.css'
 
 const TIPO_COLOR = {
-  Correctivo: { bg: '#fee2e2', color: '#991b1b' },
-  Preventivo:  { bg: '#dcfce7', color: '#166534' },
-  Adaptativo:  { bg: '#dbeafe', color: '#1e40af' },
+  Correctivo: { bg: '#fef2f2', color: '#b91c1c' },
+  Preventivo: { bg: '#ecfdf5', color: '#047857' },
+  Adaptativo: { bg: '#eff6ff', color: '#1d4ed8' },
 }
 
 const STATUS_COLOR = {
-  Terminado:   { bg: '#dcfce7', color: '#166534' },
-  'En Proceso': { bg: '#fef9c3', color: '#854d0e' },
-  Pendiente:   { bg: '#f3f4f6', color: '#374151' },
+  Terminado: { bg: '#ecfdf5', color: '#047857' },
+  'En Proceso': { bg: '#fffbeb', color: '#b45309' },
+  Pendiente: { bg: '#f3f4f6', color: '#374151' },
 }
 
 const SEVERITY_COLOR = {
-  Alta:  { bg: '#fee2e2', color: '#991b1b' },
-  Media: { bg: '#fef9c3', color: '#854d0e' },
-  Baja:  { bg: '#dcfce7', color: '#166534' },
+  Alta: { bg: '#fef2f2', color: '#b91c1c' },
+  Media: { bg: '#fffbeb', color: '#b45309' },
+  Baja: { bg: '#ecfdf5', color: '#047857' },
 }
 
 function Badge({ text, style = {} }) {
@@ -27,10 +28,12 @@ function Badge({ text, style = {} }) {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '2px 10px',
+        padding: '0.22rem 0.7rem',
         borderRadius: '9999px',
         fontSize: '0.72rem',
-        fontWeight: 600,
+        fontWeight: 700,
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
         ...style,
       }}
     >
@@ -39,14 +42,11 @@ function Badge({ text, style = {} }) {
   )
 }
 
-function StatCard({ label, value, icon }) {
+function StatCard({ label, value }) {
   return (
     <div className="hdv-stat-card">
-      <span className="hdv-stat-icon">{icon}</span>
-      <div>
-        <p className="hdv-stat-value">{value}</p>
-        <p className="hdv-stat-label">{label}</p>
-      </div>
+      <p className="hdv-stat-value">{value}</p>
+      <p className="hdv-stat-label">{label}</p>
     </div>
   )
 }
@@ -54,35 +54,39 @@ function StatCard({ label, value, icon }) {
 function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
   const [expanded, setExpanded] = useState(false)
 
-  const tipoStyle  = TIPO_COLOR[caso.maintenanceType]  ?? { bg: '#f3f4f6', color: '#374151' }
-  const statStyle  = STATUS_COLOR[caso.ticketStatus]   ?? { bg: '#f3f4f6', color: '#374151' }
+  const tipoStyle = TIPO_COLOR[caso.maintenanceType] ?? { bg: '#f3f4f6', color: '#374151' }
+  const statStyle = STATUS_COLOR[caso.ticketStatus] ?? { bg: '#f3f4f6', color: '#374151' }
 
   const formatDate = (d) =>
-    d ? new Date(d).toLocaleDateString('es-EC', { year: 'numeric', month: 'short', day: '2-digit' }) : '—'
+    d
+      ? new Date(d).toLocaleDateString('es-EC', {
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+      })
+      : '—'
 
   const resolveName = (userId) =>
     usuariosMap[userId] ?? `Usuario (${String(userId).slice(0, 8)}...)`
 
   return (
     <div className="hdv-caso-card">
-      {/* Dot + línea de tiempo */}
       <div className="hdv-timeline-marker">
         <div className="hdv-timeline-dot" style={{ background: tipoStyle.color }} />
         <div className="hdv-timeline-line" />
       </div>
 
-      {/* Contenido de la tarjeta */}
       <div className="hdv-caso-body">
-        {/* Header */}
         <div className="hdv-caso-header" onClick={() => setExpanded(e => !e)}>
           <div className="hdv-caso-header-left">
             <span className="hdv-caso-number">{caso.ticketNumber}</span>
             <Badge text={caso.maintenanceType} style={{ background: tipoStyle.bg, color: tipoStyle.color }} />
             <Badge text={caso.ticketStatus} style={{ background: statStyle.bg, color: statStyle.color }} />
             {equipment?.status === 'Dado de baja' && showBaja && (
-              <Badge text="⛔ Baja" style={{ background: '#fef2f2', color: '#991b1b' }} />
+              <Badge text="Baja" style={{ background: '#fef2f2', color: '#b91c1c' }} />
             )}
           </div>
+
           <div className="hdv-caso-header-right">
             <span className="hdv-caso-date">
               {formatDate(caso.fechaInicio)}
@@ -94,7 +98,6 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
 
         <p className="hdv-caso-title">{caso.title}</p>
 
-        {/* Resumen rápido */}
         <div className="hdv-caso-stats">
           <span>👤 {caso.totalTecnicos} técnico{caso.totalTecnicos !== 1 ? 's' : ''}</span>
           <span>🔧 {caso.totalActividades} actividad{caso.totalActividades !== 1 ? 'es' : ''}</span>
@@ -102,10 +105,8 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
           <span>📦 {caso.totalRecursos} recurso{caso.totalRecursos !== 1 ? 's' : ''}</span>
         </div>
 
-        {/* Detalle expandible (HU-13 CA-3) */}
         {expanded && (
           <div className="hdv-caso-detail">
-            {/* Técnicos */}
             {caso.tecnicos.length > 0 && (
               <section className="hdv-detail-section">
                 <h4>Técnicos que intervinieron</h4>
@@ -132,7 +133,6 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
               </section>
             )}
 
-            {/* Actividades */}
             {caso.actividades.length > 0 && (
               <section className="hdv-detail-section">
                 <h4>Actividades realizadas</h4>
@@ -153,7 +153,6 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
               </section>
             )}
 
-            {/* Diagnósticos */}
             {caso.diagnosticos.length > 0 && (
               <section className="hdv-detail-section">
                 <h4>Diagnósticos identificados</h4>
@@ -177,7 +176,6 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
               </section>
             )}
 
-            {/* Recursos */}
             {caso.recursos.length > 0 && (
               <section className="hdv-detail-section">
                 <h4>Recursos utilizados</h4>
@@ -202,7 +200,6 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
               </section>
             )}
 
-            {/* Sin datos */}
             {caso.tecnicos.length === 0 &&
               caso.actividades.length === 0 &&
               caso.diagnosticos.length === 0 &&
@@ -212,19 +209,20 @@ function CasoCard({ caso, usuariosMap, equipment, showBaja }) {
                 </p>
               )}
 
-            {/* Baja del equipo registrada durante este mantenimiento */}
             {equipment?.status === 'Dado de baja' && equipment?.bajaMotivo && caso.showBaja && (
               <section className="hdv-detail-section">
-                <h4 style={{ color: '#991b1b' }}>⛔ Equipo dado de baja en este mantenimiento</h4>
-                <div style={{
-                  padding: '0.6rem 0.9rem', background: '#fef2f2',
-                  border: '1px solid #fecaca', borderRadius: 8,
-                  fontSize: '0.875rem', color: '#7f1d1d',
-                }}>
+                <h4 style={{ color: '#b91c1c' }}>Equipo dado de baja en este mantenimiento</h4>
+                <div className="hdv-baja-box">
                   <strong>Motivo:</strong> {equipment.bajaMotivo}
                   {equipment.bajaAt && (
-                    <span style={{ marginLeft: 8, color: '#9ca3af' }}>
-                      · {new Date(equipment.bajaAt).toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    <span className="hdv-baja-date">
+                      · {new Date(equipment.bajaAt).toLocaleDateString('es-EC', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   )}
                 </div>
@@ -241,11 +239,11 @@ export default function HojaDeVida() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [equipment, setEquipment]   = useState(null)
+  const [equipment, setEquipment] = useState(null)
   const [hojaDeVida, setHojaDeVida] = useState(null)
   const [usuariosMap, setUsuariosMap] = useState({})
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!id) return
@@ -253,8 +251,8 @@ export default function HojaDeVida() {
     const fetchAll = async () => {
       setLoading(true)
       setError('')
+
       try {
-        // 1. Datos del equipo
         const [eqRes, hdvRes] = await Promise.all([
           equipmentApi.get(`/equipments/${id}`),
           maintenanceApi.get(`/equipments/${id}/hoja-de-vida`),
@@ -263,7 +261,6 @@ export default function HojaDeVida() {
         setEquipment(eqRes.data)
         setHojaDeVida(hdvRes.data)
 
-        // 2. Resolver nombres de técnicos
         const userIds = [
           ...new Set(
             hdvRes.data.historia.flatMap(h =>
@@ -280,13 +277,16 @@ export default function HojaDeVida() {
               map[u.id] = u.fullName ?? u.email ?? u.id
             })
             setUsuariosMap(map)
-          } catch {
-            // Si falla la carga de usuarios, no bloqueamos la vista
+          } catch (error) {
+            console.error(error)
           }
         }
       } catch (err) {
         if (err.response?.status === 404) {
-          setHojaDeVida({ resumen: { totalCasos: 0, totalActividades: 0, totalRecursos: 0 }, historia: [] })
+          setHojaDeVida({
+            resumen: { totalCasos: 0, totalActividades: 0, totalRecursos: 0 },
+            historia: [],
+          })
         } else {
           setError('No se pudo cargar la hoja de vida. Intenta nuevamente.')
         }
@@ -316,9 +316,9 @@ export default function HojaDeVida() {
   if (error) {
     return (
       <div className="hdv-page">
+        <BackButton to="/equipos" label="Volver a Equipos" />
         <div className="hdv-error">
           <p>{error}</p>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>← Volver</button>
         </div>
       </div>
     )
@@ -329,90 +329,74 @@ export default function HojaDeVida() {
 
   return (
     <div className="hdv-page">
-      {/* Encabezado */}
-      <div className="hdv-header">
-        <div className="hdv-header-left">
-          <button className="hdv-back-btn" onClick={() => navigate('/equipos')}>
-            ← Gestión de Equipos
-          </button>
+      <BackButton to="/equipos" label="Volver a Equipos" />
+      <div className="hdv-topbar">
+        <div className="hdv-topbar-left">
           <div>
             <h1 className="hdv-title">Hoja de Vida del Equipo</h1>
-            <p className="hdv-subtitle">Historial completo de mantenimientos del activo institucional</p>
+            <p className="hdv-subtitle">Historial técnico consolidado del activo institucional</p>
           </div>
         </div>
-        <button className="btn-primary hdv-export-btn" onClick={handleExport}>
-          ↓ Exportar Historial
+        <button className="hdv-export-btn" onClick={handleExport}>
+          ↓ Exportar historial
         </button>
       </div>
 
-      {/* Ficha del equipo */}
       {equipment && (
-        <div className="hdv-equipment-card">
-          <div className="hdv-equipment-code">
-            <span className="hdv-code-badge">{equipment.code}</span>
-          </div>
-          <div className="hdv-equipment-info">
-            <h2 className="hdv-equipment-name">
+        <section className="hdv-hero">
+          <div className="hdv-hero-code">{equipment.code}</div>
+          <div className="hdv-hero-main">
+            <h2 className="hdv-hero-name">
               {equipment.brand} {equipment.model}
             </h2>
-            <p className="hdv-equipment-type">{equipment.equipmentType?.name}</p>
-            <div className="hdv-equipment-meta">
-              <span>Serie: <strong>{equipment.serialNumber}</strong></span>
-              <span>Estado: <strong style={equipment.status === 'Dado de baja' ? { color: '#991b1b' } : {}}>{equipment.status}</strong></span>
+            <p className="hdv-hero-type">{equipment.equipmentType?.name}</p>
+            <div className="hdv-hero-meta">
+              <span>Serie <strong>{equipment.serialNumber}</strong></span>
+              <span>Estado <strong>{equipment.status}</strong></span>
               {equipment.laboratoristaNombre && (
-                <span>Responsable: <strong>{equipment.laboratoristaNombre}</strong></span>
+                <span>Responsable <strong>{equipment.laboratoristaNombre}</strong></span>
               )}
               {equipment.purchaseDate && (
-                <span>Compra: <strong>{new Date(equipment.purchaseDate).toLocaleDateString('es-EC')}</strong></span>
+                <span>
+                  Compra{' '}
+                  <strong>
+                    {new Date(equipment.purchaseDate).toLocaleDateString('es-EC')}
+                  </strong>
+                </span>
               )}
             </div>
-            {/* Alerta de baja */}
-            {equipment.status === 'Dado de baja' && (
-              <div style={{
-                marginTop: '0.75rem', padding: '0.6rem 0.9rem',
-                background: '#fef2f2', border: '1px solid #fecaca',
-                borderRadius: 8, fontSize: '0.85rem', color: '#7f1d1d',
-              }}>
-                <strong>⛔ Equipo dado de baja</strong>
-                {equipment.bajaMotivo && (
-                  <span style={{ marginLeft: 6 }}>· Motivo: {equipment.bajaMotivo}</span>
-                )}
-                {equipment.bajaAt && (
-                  <span style={{ marginLeft: 6, color: '#9ca3af' }}>
-                    · {new Date(equipment.bajaAt).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Estadísticas generales */}
-      <div className="hdv-stats-row">
-        <StatCard label="Casos registrados"   value={resumen?.totalCasos ?? 0}       icon="📋" />
-        <StatCard label="Actividades realizadas" value={resumen?.totalActividades ?? 0} icon="🔧" />
-        <StatCard label="Recursos utilizados"  value={resumen?.totalRecursos ?? 0}    icon="📦" />
-        {resumen?.ultimoMantenimiento && (
-          <StatCard
-            label="Último mantenimiento"
-            value={new Date(resumen.ultimoMantenimiento).toLocaleDateString('es-EC', { year: 'numeric', month: 'short', day: '2-digit' })}
-            icon="📅"
-          />
-        )}
-      </div>
+      <section className="hdv-stats">
+        <StatCard label="Casos registrados" value={resumen?.totalCasos ?? 0} />
+        <StatCard label="Actividades realizadas" value={resumen?.totalActividades ?? 0} />
+        <StatCard label="Recursos utilizados" value={resumen?.totalRecursos ?? 0} />
+        <StatCard
+          label="Último mantenimiento"
+          value={
+            resumen?.ultimoMantenimiento
+              ? new Date(resumen.ultimoMantenimiento).toLocaleDateString('es-EC', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+              })
+              : '—'
+          }
+        />
+      </section>
 
-      {/* Línea de tiempo */}
-      <div className="hdv-timeline-container">
-        <h3 className="hdv-section-title">Línea de tiempo de intervenciones</h3>
-        <p className="hdv-section-sub">
-          Casos ordenados del más reciente al más antiguo. Haz clic en cada caso para ver el detalle completo.
-        </p>
+      <section className="hdv-history">
+        <div className="hdv-section-head">
+          <h3>Línea de tiempo de intervenciones</h3>
+          <p>Casos ordenados del más reciente al más antiguo.</p>
+        </div>
 
         {historia.length === 0 ? (
           <div className="hdv-empty">
             <span className="hdv-empty-icon">🔍</span>
-            <p>Este equipo no tiene casos de mantenimiento registrados aún.</p>
+            <p>Este equipo no tiene casos registrados aún.</p>
           </div>
         ) : (
           <div className="hdv-timeline">
@@ -427,7 +411,7 @@ export default function HojaDeVida() {
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

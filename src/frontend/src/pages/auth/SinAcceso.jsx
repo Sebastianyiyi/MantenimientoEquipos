@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import BackButton from '../../components/BackButton'
 import './SinAcceso.css'
 
 export default function SinAcceso() {
@@ -8,6 +9,7 @@ export default function SinAcceso() {
 
   return (
     <div className="sin-acceso-page">
+      <BackButton label="Volver atrás" />
       <div className="sin-acceso-card">
         <div className="sin-acceso-icon">
           <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
@@ -25,9 +27,6 @@ export default function SinAcceso() {
         <div className="sin-acceso-actions">
           <button className="btn-primary" onClick={() => navigate('/dashboard')}>
             Ir al Dashboard
-          </button>
-          <button className="btn-secondary" onClick={() => navigate(-1)}>
-            Volver atrás
           </button>
         </div>
       </div>

@@ -28,7 +28,12 @@ public class EquipmentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? status, [FromQuery] string? search)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? status,
+        [FromQuery] string? search,
+        [FromQuery] string? brand,
+        [FromQuery] Guid? equipmentTypeId,
+        [FromQuery] Guid? laboratoristaUserId)
     {
         var query = _context.Equipments
             .Where(e => e.IsActive)
@@ -36,6 +41,15 @@ public class EquipmentsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(status))
             query = query.Where(e => e.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(brand))
+            query = query.Where(e => e.Brand == brand);
+
+        if (equipmentTypeId.HasValue)
+            query = query.Where(e => e.EquipmentTypeId == equipmentTypeId.Value);
+
+        if (laboratoristaUserId.HasValue)
+            query = query.Where(e => e.LaboratoristaUserId == laboratoristaUserId.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
             query = query.Where(e =>

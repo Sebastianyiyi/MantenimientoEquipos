@@ -267,12 +267,12 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
       {/* ── MODAL DE SELECCIÓN ── */}
       {showModal && (
         <div style={overlay}>
-          <div style={{ ...modal, maxWidth: 640 }}>
+          <div style={{ ...modal, maxWidth: 780 }}>
 
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <div>
-                <h3 style={{ margin: 0 }}>Agregar Actividades y Diagnósticos</h3>
+                <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#111827' }}>Agregar Actividades y Diagnósticos</h3>
                 <p style={{ margin: 0, fontSize: '0.82rem', color: '#6b7280' }}>
                   Selecciona uno o varios elementos del catálogo
                 </p>
@@ -315,7 +315,7 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
                       onChange={e => setSearchActivity(e.target.value)}
                       style={{ ...inputStyle, marginBottom: '0.75rem' }}
                     />
-                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                    <div style={{ maxHeight: 380, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 10 }}>
                       {filteredActivities.length === 0 ? (
                         <p style={{ padding: '1.5rem', textAlign: 'center', color: '#888', margin: 0 }}>
                           {catalogActivities.length === 0 ? 'Todas las actividades ya están vinculadas.' : 'Sin resultados.'}
@@ -323,7 +323,7 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
                       ) : filteredActivities.map(a => (
                         <label key={a.id} style={{
                           display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
-                          padding: '0.6rem 0.75rem', cursor: 'pointer',
+                          padding: '0.75rem 1rem', cursor: 'pointer',
                           background: selectedActivities.has(a.id) ? '#eff6ff' : 'transparent',
                           borderBottom: '1px solid #f5f5f5',
                         }}>
@@ -363,7 +363,7 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
                       onChange={e => setSearchDiagnosis(e.target.value)}
                       style={{ ...inputStyle, marginBottom: '0.75rem' }}
                     />
-                    <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                    <div style={{ maxHeight: 380, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 10 }}>
                       {filteredDiagnoses.length === 0 ? (
                         <p style={{ padding: '1.5rem', textAlign: 'center', color: '#888', margin: 0 }}>
                           {catalogDiagnoses.length === 0 ? 'Todos los diagnósticos ya están vinculados.' : 'Sin resultados.'}
@@ -371,7 +371,7 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
                       ) : filteredDiagnoses.map(d => (
                         <label key={d.id} style={{
                           display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
-                          padding: '0.6rem 0.75rem', cursor: 'pointer',
+                          padding: '0.75rem 1rem', cursor: 'pointer',
                           background: selectedDiagnoses.has(d.id) ? '#eff6ff' : 'transparent',
                           borderBottom: '1px solid #f5f5f5',
                         }}>
@@ -435,6 +435,6 @@ export default function TicketActivitiesDiagnoses({ ticketEquipmentId, ticketSta
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const overlay   = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '1rem' }
-const modal     = { background: '#fff', borderRadius: 12, padding: '2rem', width: '100%', maxHeight: '90vh', overflowY: 'auto' }
+const modal     = { background: '#fff', borderRadius: 16, padding: '2.25rem 2.5rem', width: '100%', maxHeight: '90vh', overflowY: 'auto' }
 const inputStyle = { width: '100%', padding: '0.5rem', borderRadius: 6, border: '1px solid #ddd', boxSizing: 'border-box', fontFamily: 'inherit' }
 const closeBtn  = { background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#666' }

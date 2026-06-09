@@ -1,8 +1,91 @@
 import { useState, useEffect } from 'react'
 import { userApi } from '../../services/api'
 import './Usuarios.css'
+import CustomSelect from '../../components/CustomSelect'
 
 const ROLES = ['Administrador', 'Laboratorista']
+
+const roleOptions = [
+  {
+    value: 'todos',
+    label: 'Todos los roles',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle' }}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+    iconColor: '#64748b'
+  },
+  {
+    value: 'administrador',
+    label: 'Administrador',
+    badgeColor: '#991b1b',
+    badgeBg: '#fee2e2',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    ),
+    iconColor: '#C0191F'
+  },
+  {
+    value: 'laboratorista',
+    label: 'Laboratorista',
+    badgeColor: '#166534',
+    badgeBg: '#f0fdf4',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+    iconColor: '#16A34A'
+  }
+]
+
+const estadoOptions = [
+  {
+    value: 'todos',
+    label: 'Todos los estados',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle' }}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M9 12h6" />
+      </svg>
+    ),
+    iconColor: '#64748b'
+  },
+  {
+    value: 'activo',
+    label: 'Activo',
+    badgeColor: '#166534',
+    badgeBg: '#dcfce7',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
+    ),
+    iconColor: '#16A34A'
+  },
+  {
+    value: 'inactivo',
+    label: 'Inactivo',
+    badgeColor: '#991b1b',
+    badgeBg: '#fee2e2',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ verticalAlign: 'middle' }}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="15" y1="9" x2="9" y2="15" />
+        <line x1="9" y1="9" x2="15" y2="15" />
+      </svg>
+    ),
+    iconColor: '#C0191F'
+  }
+]
 
 export default function Usuarios() {
   const [users, setUsers] = useState([])
@@ -143,35 +226,19 @@ export default function Usuarios() {
           />
         </div>
 
-        <select
-          className="filter-select"
+        <CustomSelect
           value={filterRol}
-          onChange={e => setFilterRol(e.target.value)}
-        >
-          <option value="todos">Todos los roles</option>
-          <option value="administrador">Administrador</option>
-          <option value="laboratorista">Laboratorista</option>
-        </select>
+          onChange={setFilterRol}
+          options={roleOptions}
+          style={{ minWidth: '180px' }}
+        />
 
-        <select
-          className="filter-select"
+        <CustomSelect
           value={filterEstado}
-          onChange={e => setFilterEstado(e.target.value)}
-        >
-          <option value="todos">Todos los estados</option>
-          <option value="activo">Activo</option>
-          <option value="inactivo">Inactivo</option>
-        </select>
-
-        <button className="btn-refresh" onClick={loadUsers} type="button">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 2v6h-6" />
-            <path d="M3 12a9 9 0 0 1 15.55-6.36L21 8" />
-            <path d="M3 22v-6h6" />
-            <path d="M21 12a9 9 0 0 1-15.55 6.36L3 16" />
-          </svg>
-          Actualizar
-        </button>
+          onChange={setFilterEstado}
+          options={estadoOptions}
+          style={{ minWidth: '180px' }}
+        />
       </div>
 
       <div className="usuarios-card">
