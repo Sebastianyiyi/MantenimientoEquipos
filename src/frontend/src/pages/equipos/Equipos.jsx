@@ -21,57 +21,80 @@ export default function Equipos() {
   const [search, setSearch]           = useState('')
   const [page, setPage] = useState(1)
 
+  // Cargar metadatos estáticos una sola vez al montar el componente
+  useEffect(() => {
+    let active = true
+    async function loadMetadata() {
+      try {
+        const [labsRes, typesRes, usersRes] = await Promise.allSettled([
+          locationApi.get('/laboratorios'),
+          equipmentApi.get('/equipment-types'),
+          userApi.get('/users'),
+        ])
+
+        if (!active) return
+
+        if (labsRes.status === 'fulfilled') setLaboratories(labsRes.value.data ?? [])
+        if (typesRes.status === 'fulfilled') setEquipmentTypes(typesRes.value.data ?? [])
+        if (usersRes.status === 'fulfilled') {
+          setLaboratoristas((usersRes.value.data ?? []).filter(u => u.role === 'Laboratorista' && u.isActive))
+        }
+      } catch (e) {
+        console.error('Error al cargar metadatos:', e)
+      }
+    }
+    loadMetadata()
+    return () => { active = false }
+  }, [])
+
   const load = useCallback(async (searchTerm = search) => {
     try {
       setLoading(true)
       setError('')
 
       const params = {}
-      if (filterStatus) params.status = filterStatus
-      if (filterBrand) params.brand = filterBrand
-      if (filterType) params.equipmentTypeId = filterType
-      if (filterLaboratorista) params.laboratoristaUserId = filterLaboratorista
-      if (searchTerm)   params.search = searchTerm
+      if (searchTerm) params.search = searchTerm
 
-      const [eqRes, labsRes, currentLocationsRes, typesRes, usersRes] = await Promise.allSettled([
+      const [eqRes, locationsRes] = await Promise.allSettled([
         equipmentApi.get('/equipments', { params }),
-        locationApi.get('/laboratorios'),
         locationApi.get('/equipment-locations'),
-        equipmentApi.get('/equipment-types'),
-        userApi.get('/users'),
       ])
 
       if (eqRes.status !== 'fulfilled')               throw eqRes.reason
-      if (currentLocationsRes.status !== 'fulfilled') throw currentLocationsRes.reason
+      if (locationsRes.status !== 'fulfilled')        throw locationsRes.reason
 
       const locationMap = new Map(
-        (currentLocationsRes.value.data ?? []).map(item => [item.equipmentId, item.laboratory])
+        (locationsRes.value.data ?? []).map(item => [item.equipmentId, item.laboratory])
       )
 
-      setEquipments(eqRes.value.data.map(eq => ({
+      setEquipments((eqRes.value.data ?? []).map(eq => ({
         ...eq,
         laboratory: locationMap.get(eq.id) ?? null,
       })))
-
-      if (labsRes.status === 'fulfilled') setLaboratories(labsRes.value.data)
-      if (typesRes.status === 'fulfilled') setEquipmentTypes(typesRes.value.data)
-      if (usersRes.status === 'fulfilled') {
-        setLaboratoristas((usersRes.value.data ?? []).filter(u => u.role === 'Laboratorista' && u.isActive))
-      }
     } catch (e) {
       setError(e.response?.data?.message ?? 'Error al cargar datos.')
     } finally {
       setLoading(false)
     }
-  }, [filterStatus, filterBrand, filterType, filterLaboratorista, search])
+  }, [search])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { setPage(1) }, [search, filterStatus, filterLaboratory, filterLaboratorista, filterBrand, filterType])
 
   const handleSearch = (e) => { e.preventDefault(); load(search) }
 
+  // Calcular las marcas basadas en la lista completa (para que no desaparezcan al filtrar)
   const brands = Array.from(new Set(equipments.map(eq => eq.brand).filter(Boolean))).sort()
-  const displayed = equipments.filter(eq => !filterLaboratory || eq.laboratory?.id === filterLaboratory)
+
+  // Filtrado del lado del cliente para marcas, tipos, laboratoristas y estados
+  const displayed = equipments.filter(eq => {
+    const matchStatus = !filterStatus || eq.status === filterStatus
+    const matchLaboratory = !filterLaboratory || eq.laboratory?.id === filterLaboratory
+    const matchBrand = !filterBrand || eq.brand === filterBrand
+    const matchType = !filterType || eq.equipmentType?.id === filterType
+    const matchLaboratorista = !filterLaboratorista || eq.laboratoristaUserId === filterLaboratorista
+    return matchStatus && matchLaboratory && matchBrand && matchType && matchLaboratorista
+  })
   const totalPages = Math.max(1, Math.ceil(displayed.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const paginated = displayed.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
