@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { maintenanceApi, equipmentApi, locationApi } from '../../services/api'
+import { maintenanceApi, equipmentApi, locationApi, userApi } from '../../services/api'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
@@ -115,6 +115,14 @@ export default function Reportes() {
     const ids = equiposSeleccionados.map(e => e.id)
     const res = await maintenanceApi.post('/reportes/hoja-vida-multiple', ids)
     const lista = res.data
+
+    let usuariosMap = {}
+    try {
+      const usersRes = await userApi.get('/users')
+      usersRes.data.forEach(u => {
+        usuariosMap[u.id] = u.fullName ?? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ?? u.email ?? u.id
+      })
+    } catch { /* si falla, se muestran IDs cortos */ }
 
     const doc = new jsPDF()
     const ROJO    = [192, 25, 31]
@@ -279,18 +287,22 @@ export default function Reportes() {
         doc.setDrawColor(...tc.txt)
         doc.setLineWidth(0.5)
 
-        // Fondo de cabecera del caso
+        // Fondo de cabecera del caso — solo el header (sin título ni contadores)
         doc.setFillColor(248, 248, 248)
         doc.roundedRect(22, y - 4, 174, 13, 2, 2, 'F')
         doc.setDrawColor(229, 231, 235)
         doc.setLineWidth(0.3)
         doc.roundedRect(22, y - 4, 174, 13, 2, 2, 'S')
+        // Borde izquierdo de color según tipo
+        doc.setFillColor(...tc.txt)
+        doc.rect(22, y - 4, 2.5, 13, 'F')
 
         // Número del ticket
         doc.setFontSize(8.5)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(...GRIS_OS)
-        doc.text(caso.ticketNumber, 26, y + 1)
+        const ticketNumTxt = doc.splitTextToSize(caso.ticketNumber ?? '', 40)
+        doc.text(ticketNumTxt, 26, y + 1)
 
         // Badges tipo y estado
         const badgeX = 26 + doc.getTextWidth(caso.ticketNumber) + 4
@@ -299,7 +311,7 @@ export default function Reportes() {
 
         // Fecha (derecha)
         const fechaTxt = caso.fechaInicio
-          ? `${formatDate(caso.fechaInicio)}${caso.fechaCierre ? ' → ' + formatDate(caso.fechaCierre) : ''}`
+          ? `${formatDate(caso.fechaInicio)}${caso.fechaCierre ? ' -> ' + formatDate(caso.fechaCierre) : ''}`
           : '—'
         doc.setFontSize(7.5)
         doc.setFont('helvetica', 'normal')
@@ -308,29 +320,39 @@ export default function Reportes() {
 
         y += 11
 
-        // Título del caso
+        // Calcular líneas para saber la altura del bloque
+        doc.setFontSize(9)
+        const tituloLines = doc.splitTextToSize(caso.title ?? '—', 158)
+        doc.setFontSize(7.5)
+        const contadorTxt = `${caso.tecnicos?.length ?? 0} tecnico(s)   ${caso.actividades?.length ?? 0} actividad(es)   ${caso.diagnosticos?.length ?? 0} diagnostico(s)   ${caso.recursos?.length ?? 0} recurso(s)`
+        const contadorLines = doc.splitTextToSize(contadorTxt, 158)
+
+        // Altura total del bloque de título + contadores
+        const bloqueH = tituloLines.length * 5 + contadorLines.length * 4 + 8
+        // Dibujar fondo del bloque
+        doc.setFillColor(255, 255, 255)
+        doc.setDrawColor(229, 231, 235)
+        doc.setLineWidth(0.3)
+        doc.roundedRect(22, y - 2, 174, bloqueH, 0, 0, 'FD')
+
+        // Título
         doc.setFontSize(9)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(17, 24, 39)
-        doc.text(caso.title ?? '—', 26, y)
-        y += 5
+        doc.text(tituloLines, 27, y + 4)
+        y += tituloLines.length * 5 + 2
 
-        // Contador rápido: técnicos, actividades, diagnósticos, recursos
+        // Contadores
         doc.setFontSize(7.5)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(107, 114, 128)
-        const contadores = [
-          `👤 ${caso.tecnicos?.length ?? 0} técnico(s)`,
-          `🔧 ${caso.actividades?.length ?? 0} actividad(es)`,
-          `🔍 ${caso.diagnosticos?.length ?? 0} diagnóstico(s)`,
-          `📦 ${caso.recursos?.length ?? 0} recurso(s)`,
-        ]
-        doc.text(contadores.join('   '), 26, y)
-        y += 6
+        doc.text(contadorLines, 27, y + 2)
+        y += contadorLines.length * 4 + 6
 
         // ── TÉCNICOS ──
         if ((caso.tecnicos ?? []).length > 0) {
           y = checkPage(doc, y, 12)
+          y += 3
           doc.setFontSize(8)
           doc.setFont('helvetica', 'bold')
           doc.setTextColor(...GRIS_OS)
@@ -339,7 +361,7 @@ export default function Reportes() {
 
           for (const t of caso.tecnicos) {
             y = checkPage(doc, y, 10)
-            const nombre = t.technicianUserId ?? '—'
+            const nombre = usuariosMap[t.technicianUserId] ?? String(t.technicianUserId ?? '—').slice(0, 20)
             // Avatar circular
             doc.setFillColor(...ROJO)
             doc.circle(30, y, 3, 'F')
@@ -351,14 +373,16 @@ export default function Reportes() {
             doc.setFontSize(8)
             doc.setFont('helvetica', 'bold')
             doc.setTextColor(17, 24, 39)
-            doc.text(nombre, 36, y + 1)
-            y += 5
+            const nombreLines = doc.splitTextToSize(nombre, 150)
+            doc.text(nombreLines, 36, y + 1)
+            y += nombreLines.length * 5
             if (t.activityDescription) {
               doc.setFontSize(7.5)
               doc.setFont('helvetica', 'normal')
               doc.setTextColor(75, 85, 99)
-              doc.text(t.activityDescription, 36, y)
-              y += 4
+              const descLines = doc.splitTextToSize(t.activityDescription, 154)
+              doc.text(descLines, 36, y)
+              y += descLines.length * 4
             }
           }
           y += 2
