@@ -1,0 +1,75 @@
+.sin-acceso-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.sin-acceso-card {
+  background: white;
+  border-radius: 16px;
+  padding: 48px;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+
+.sin-acceso-icon {
+  margin-bottom: 24px;
+}
+
+.sin-acceso-card h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 12px;
+}
+
+.sin-acceso-card p {
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+
+.sin-acceso-role {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: inline-block;
+  margin: 12px 0 24px;
+  font-size: 0.875rem;
+}
+
+.sin-acceso-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  background: #C0191F;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-primary:hover { background: #a01519; }
+
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+.btn-secondary:hover { background: #f9fafb; }

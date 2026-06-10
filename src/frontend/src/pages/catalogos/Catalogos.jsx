@@ -1,0 +1,1113 @@
+import { useState, useEffect } from 'react'
+import { equipmentApi, locationApi, maintenanceApi } from '../../services/api'
+import './Catalogos.css'
+import CustomSelect from '../../components/CustomSelect'
+
+export default function Catalogos() {
+  const [tab, setTab] = useState('tipos')
+
+  return (
+    <div className="catalogos">
+      <h2>Gestión de Catálogos</h2>
+      <p className="catalogos-subtitle">Administración de catálogos del sistema</p>
+
+      <div className="catalogos-tabs">
+        <button className={`tab-btn ${tab === 'tipos' ? 'active' : ''}`} onClick={() => setTab('tipos')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
+          Tipos de Equipo
+        </button>
+        <button className={`tab-btn ${tab === 'laboratorios' ? 'active' : ''}`} onClick={() => setTab('laboratorios')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
+          </svg>
+          Laboratorios
+        </button>
+        <button className={`tab-btn ${tab === 'activities' ? 'active' : ''}`} onClick={() => setTab('activities')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          Actividades
+        </button>
+        <button className={`tab-btn ${tab === 'diagnoses' ? 'active' : ''}`} onClick={() => setTab('diagnoses')} type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          Diagnósticos
+        </button>
+      </div>
+
+      <div className="catalogos-content">
+        {tab === 'tipos'        && <TiposEquipo />}
+        {tab === 'laboratorios' && <Laboratorios />}
+        {tab === 'activities'   && <CatalogActivities />}
+        {tab === 'diagnoses'    && <CatalogDiagnoses />}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Tipos de Equipo ─────────────────────────────────────────── */
+function TiposEquipo() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ name: '', description: '' })
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await equipmentApi.get('/equipment-types')
+      setItems(res.data)
+    } catch {
+      setError('Error al cargar tipos de equipo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', description: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (item) => {
+    setEditing(item)
+    setForm({ name: item.name, description: item.description ?? '' })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+    setSaving(true)
+    try {
+      if (editing) {
+        await equipmentApi.put(`/equipment-types/${editing.id}`, form)
+      } else {
+        await equipmentApi.post('/equipment-types', form)
+      }
+      setShowForm(false)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.message ?? 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const requestDelete = (item) => {
+    setDeleteTarget(item)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await equipmentApi.delete(`/equipment-types/${deleteTarget.id}`)
+      setDeleteTarget(null)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.message ?? 'Error al eliminar')
+    }
+  }
+
+  const cancelDelete = () => {
+    setDeleteTarget(null)
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error) return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Tipos de Equipo</h3>
+          <p>Categorías de equipos disponibles en el sistema</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">
+          + Agregar Tipo
+        </button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th className="cat-center">Equipos</th>
+            <th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td>{item.name}</td>
+              <td>{item.description ?? '—'}</td>
+              <td className="cat-center">{item.equipmentCount}</td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button
+                    className="action-icon-btn"
+                    onClick={() => openEdit(item)}
+                    title="Editar"
+                    type="button"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    className="action-icon-btn"
+                    onClick={() => requestDelete(item)}
+                    title="Eliminar"
+                    type="button"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+
+          {items.length === 0 && (
+            <tr>
+              <td colSpan={5} className="cat-empty">No hay tipos registrados.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal">
+            <h4>{editing ? 'Editar Tipo de Equipo' : 'Nuevo Tipo de Equipo'}</h4>
+
+            <label>Nombre *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              placeholder="Ej: Laptop"
+            />
+
+            <label>Descripción</label>
+            <input
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="Descripción opcional"
+            />
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">
+                Cancelar
+              </button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving} type="button">
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal cat-confirm-modal">
+            <h4>Eliminar tipo de equipo</h4>
+            <p>
+              ¿Seguro que deseas eliminar <strong>{deleteTarget.name}</strong>?
+            </p>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={cancelDelete} type="button">
+                Cancelar
+              </button>
+              <button className="btn-danger" onClick={confirmDelete} type="button">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Laboratorios ────────────────────────────────────────────── */
+function Laboratorios() {
+  const [items, setItems] = useState([])
+  const [equipmentTypes, setEquipmentTypes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [formLoading, setFormLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [form, setForm] = useState({ name: '', building: '', floor: '' })
+  const [capacityRows, setCapacityRows] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await locationApi.get('/laboratorios')
+      setItems(res.data)
+    } catch {
+      setError('Error al cargar laboratorios')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadEquipmentTypes = async () => {
+    try {
+      const res = await equipmentApi.get('/equipment-types')
+      setEquipmentTypes(res.data)
+    } catch {
+      setEquipmentTypes([])
+    }
+  }
+
+  useEffect(() => {
+    load()
+    loadEquipmentTypes()
+  }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', building: '', floor: '' })
+    setCapacityRows([{ equipmentTypeId: '', maxCapacity: '' }])
+    setShowForm(true)
+  }
+
+  const openEdit = async (item) => {
+    setEditing(item)
+    setForm({
+      name: item.name,
+      building: item.building ?? '',
+      floor: item.floor ?? ''
+    })
+
+    setFormLoading(true)
+    setShowForm(true)
+
+    try {
+      const res = await locationApi.get(`/laboratorios/${item.id}`)
+      const capacities = res.data.capacities ?? res.data.Capacities ?? []
+
+      setCapacityRows(
+        capacities.length
+          ? capacities.map(c => ({
+            capacityId: c.id,
+            equipmentTypeId: c.equipmentTypeId,
+            equipmentTypeName: c.equipmentTypeName ?? '',
+            maxCapacity: c.maxCapacity
+          }))
+          : [{ equipmentTypeId: '', maxCapacity: '' }]
+      )
+    } catch {
+      setCapacityRows([{ equipmentTypeId: '', maxCapacity: '' }])
+    } finally {
+      setFormLoading(false)
+    }
+  }
+
+  const addCapacityRow = () => {
+    setCapacityRows(prev => [...prev, { equipmentTypeId: '', maxCapacity: '' }])
+  }
+
+  const updateCapacityRow = (index, field, value) => {
+    setCapacityRows(prev =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row))
+    )
+  }
+
+  const removeCapacityRow = (index) => {
+    setCapacityRows(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+
+    const cleanedRows = capacityRows
+      .map(r => ({
+        equipmentTypeId: r.equipmentTypeId,
+        maxCapacity: Number(r.maxCapacity),
+        equipmentTypeName:
+          equipmentTypes.find(t => t.id === r.equipmentTypeId)?.name ??
+          r.equipmentTypeName ??
+          ''
+      }))
+      .filter(r => r.equipmentTypeId && Number.isFinite(r.maxCapacity) && r.maxCapacity > 0)
+
+    if (cleanedRows.length === 0) {
+      return alert('Agrega al menos una capacidad válida.')
+    }
+
+    const duplicatedTypes = cleanedRows
+      .map(r => r.equipmentTypeId)
+      .filter((id, idx, arr) => arr.indexOf(id) !== idx)
+
+    if (duplicatedTypes.length > 0) {
+      return alert('No repitas el mismo tipo de equipo en dos filas.')
+    }
+
+    setSaving(true)
+    try {
+      if (editing) {
+        await locationApi.put(`/laboratorios/${editing.id}`, {
+          ...form,
+          capacity: 0
+        })
+
+        const current = await locationApi.get(`/laboratorios/${editing.id}`)
+        const existingCapacities = current.data.capacities ?? current.data.Capacities ?? []
+        const existingMap = new Map(
+          existingCapacities.map(c => [c.equipmentTypeId.toLowerCase(), c])
+        )
+
+        for (const row of cleanedRows) {
+          const existing = existingMap.get(row.equipmentTypeId.toLowerCase())
+
+          if (existing) {
+            await locationApi.put(
+              `/laboratorios/${editing.id}/capacidades/${existing.id}`,
+              {
+                equipmentTypeName: row.equipmentTypeName,
+                maxCapacity: row.maxCapacity
+              }
+            )
+          } else {
+            await locationApi.post(`/laboratorios/${editing.id}/capacidades`, {
+              equipmentTypeId: row.equipmentTypeId,
+              equipmentTypeName: row.equipmentTypeName,
+              maxCapacity: row.maxCapacity
+            })
+          }
+        }
+      } else {
+        const labRes = await locationApi.post('/laboratorios', {
+          ...form,
+          capacity: 0
+        })
+
+        const labId = labRes.data.id
+
+        for (const row of cleanedRows) {
+          await locationApi.post(`/laboratorios/${labId}/capacidades`, {
+            equipmentTypeId: row.equipmentTypeId,
+            equipmentTypeName: row.equipmentTypeName,
+            maxCapacity: row.maxCapacity
+          })
+        }
+      }
+
+      setShowForm(false)
+      await load()
+    } catch (e) {
+      alert(e.response?.data?.message ?? 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const requestDelete = (item) => {
+    setDeleteTarget(item)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    try {
+      await locationApi.delete(`/laboratorios/${deleteTarget.id}`)
+      setDeleteTarget(null)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.message ?? 'Error al eliminar')
+    }
+  }
+
+  const cancelDelete = () => {
+    setDeleteTarget(null)
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error) return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Laboratorios</h3>
+          <p>Ubicaciones físicas donde se encuentran los equipos</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">
+          + Agregar Laboratorio
+        </button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nombre</th>
+            <th>Edificio</th>
+            <th>Piso</th>
+            <th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td>{item.name}</td>
+              <td>{item.building ?? '—'}</td>
+              <td>{item.floor ?? '—'}</td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button
+                    className="action-icon-btn"
+                    onClick={() => openEdit(item)}
+                    title="Editar"
+                    type="button"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    className="action-icon-btn"
+                    onClick={() => requestDelete(item)}
+                    title="Eliminar"
+                    type="button"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+
+          {items.length === 0 && (
+            <tr>
+              <td colSpan={6} className="cat-empty">No hay laboratorios registrados.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal cat-modal-wide">
+            <h4>{editing ? 'Editar Laboratorio' : 'Nuevo Laboratorio'}</h4>
+
+            {formLoading && <p className="cat-loading">Cargando capacidades...</p>}
+
+            <label>Nombre *</label>
+            <input
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              placeholder="Ej: Laboratorio de Redes"
+            />
+
+            <label>Edificio</label>
+            <input
+              value={form.building}
+              onChange={e => setForm({ ...form, building: e.target.value })}
+              placeholder="Ej: Edificio Principal FISEI"
+            />
+
+            <label>Piso</label>
+            <input
+              value={form.floor}
+              onChange={e => setForm({ ...form, floor: e.target.value })}
+              placeholder="Ej: Piso 3"
+            />
+
+            <div className="capacity-block">
+              <div className="capacity-block-header">
+                <h5>Capacidades por tipo</h5>
+                <button className="btn-secondary" onClick={addCapacityRow} type="button">
+                  + Agregar tipo
+                </button>
+              </div>
+
+              {capacityRows.map((row, idx) => (
+                <div className="capacity-row" key={row.capacityId ?? idx}>
+                  <div>
+                    <label>Tipo de equipo</label>
+                    <CustomSelect
+                      value={row.equipmentTypeId}
+                      onChange={val => updateCapacityRow(idx, 'equipmentTypeId', val)}
+                      options={[
+                        { value: '', label: 'Selecciona uno' },
+                        ...equipmentTypes.map(t => ({
+                          value: t.id,
+                          label: t.name,
+                          icon: (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                            </svg>
+                          ),
+                          iconColor: '#2563eb'
+                        }))
+                      ]}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label>Capacidad máxima</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={row.maxCapacity}
+                      onChange={e => updateCapacityRow(idx, 'maxCapacity', e.target.value)}
+                      placeholder="Ej: 10"
+                    />
+                  </div>
+
+                  <div className="capacity-row-actions">
+                    <label className="sr-only">Eliminar fila</label>
+                    <button
+                      className="btn-danger"
+                      onClick={() => removeCapacityRow(idx)}
+                      type="button"
+                      disabled={capacityRows.length === 1}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">
+                Cancelar
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSave}
+                disabled={saving || formLoading}
+                type="button"
+              >
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal cat-confirm-modal">
+            <h4>Eliminar laboratorio</h4>
+            <p>
+              ¿Seguro que deseas eliminar <strong>{deleteTarget.name}</strong>?
+            </p>
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={cancelDelete} type="button">
+                Cancelar
+              </button>
+              <button className="btn-danger" onClick={confirmDelete} type="button">
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+/* ─── Catálogo de Actividades (HU-10) ────────────────────────── */
+const ACTIVITY_CATEGORIES = ['Correctivo', 'Preventivo', 'Adaptativo']
+const CATEGORY_COLORS = {
+  Correctivo: { bg: '#fee2e2', color: '#991b1b' },
+  Preventivo: { bg: '#e0f2fe', color: '#075985' },
+  Adaptativo: { bg: '#f3e8ff', color: '#6b21a8' },
+}
+
+function CatalogActivities() {
+  const [items,   setItems]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]  = useState(null)
+  const [form,    setForm]    = useState({ name: '', description: '', category: 'Preventivo', isActive: true })
+  const [saving,  setSaving]  = useState(false)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await maintenanceApi.get('/catalog/activities')
+      setItems(res.data)
+    } catch { setError('Error al cargar actividades') }
+    finally   { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', description: '', category: 'Preventivo', isActive: true })
+    setShowForm(true)
+  }
+
+  const openEdit = (item) => {
+    setEditing(item)
+    setForm({ name: item.name, description: item.description ?? '', category: item.category, isActive: item.isActive })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+    setSaving(true)
+    try {
+      if (editing) {
+        await maintenanceApi.put(`/catalog/activities/${editing.id}`, form)
+      } else {
+        await maintenanceApi.post('/catalog/activities', form)
+      }
+      setShowForm(false)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'Error al guardar') }
+    finally    { setSaving(false) }
+  }
+
+  const handleDelete = async (item) => {
+    if (!confirm(`¿Eliminar la actividad "${item.name}"?`)) return
+    try {
+      await maintenanceApi.delete(`/catalog/activities/${item.id}`)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'No se puede eliminar') }
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error)   return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Actividades de Mantenimiento</h3>
+          <p>Catálogo de actividades que pueden registrarse en los casos</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">+ Agregar Actividad</button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Nombre</th><th>Descripción</th><th>Categoría</th><th className="cat-center">Estado</th><th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td style={{ fontWeight: 600 }}>{item.name}</td>
+              <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{item.description ?? '—'}</td>
+              <td>
+                <span style={{
+                  padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.78rem', fontWeight: 600,
+                  background: CATEGORY_COLORS[item.category]?.bg, color: CATEGORY_COLORS[item.category]?.color,
+                }}>{item.category}</span>
+              </td>
+              <td className="cat-center">
+                <span style={{ color: item.isActive ? '#166534' : '#9ca3af', fontWeight: 600, fontSize: '0.82rem' }}>
+                  {item.isActive ? '● Activo' : '○ Inactivo'}
+                </span>
+              </td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button className="action-icon-btn" onClick={() => openEdit(item)} title="Editar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                    </svg>
+                  </button>
+                  <button className="action-icon-btn" onClick={() => handleDelete(item)} title="Eliminar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td colSpan={6} className="cat-empty">No hay actividades registradas.</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal">
+            <h4>{editing ? 'Editar Actividad' : 'Nueva Actividad'}</h4>
+
+            <label>Nombre *</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Limpieza interna" />
+
+            <label>Descripción</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
+
+            <label>Categoría *</label>
+            <CustomSelect
+              value={form.category}
+              onChange={val => setForm({ ...form, category: val })}
+              options={[
+                {
+                  value: 'Correctivo',
+                  label: 'Correctivo',
+                  badgeColor: '#991b1b',
+                  badgeBg: '#fee2e2',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    </svg>
+                  ),
+                  iconColor: '#991b1b'
+                },
+                {
+                  value: 'Preventivo',
+                  label: 'Preventivo',
+                  badgeColor: '#075985',
+                  badgeBg: '#e0f2fe',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  ),
+                  iconColor: '#075985'
+                },
+                {
+                  value: 'Adaptativo',
+                  label: 'Adaptativo',
+                  badgeColor: '#6b21a8',
+                  badgeBg: '#f3e8ff',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                    </svg>
+                  ),
+                  iconColor: '#6b21a8'
+                }
+              ]}
+              style={{ width: '100%' }}
+            />
+
+            {editing && (
+              <>
+                <label>Estado</label>
+                <CustomSelect
+                  value={form.isActive ? 'true' : 'false'}
+                  onChange={val => setForm({ ...form, isActive: val === 'true' })}
+                  options={[
+                    {
+                      value: 'true',
+                      label: 'Activo',
+                      badgeColor: '#166534',
+                      badgeBg: '#dcfce7',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      ),
+                      iconColor: '#166534'
+                    },
+                    {
+                      value: 'false',
+                      label: 'Inactivo',
+                      badgeColor: '#64748b',
+                      badgeBg: '#f1f5f9',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      ),
+                      iconColor: '#64748b'
+                    }
+                  ]}
+                  style={{ width: '100%' }}
+                />
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving} type="button">
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Catálogo de Diagnósticos (HU-10) ───────────────────────── */
+const DIAGNOSIS_SEVERITIES = ['Baja', 'Media', 'Alta']
+const SEVERITY_COLORS = {
+  Alta:  { bg: '#fee2e2', color: '#991b1b' },
+  Media: { bg: '#fef9c3', color: '#854d0e' },
+  Baja:  { bg: '#f0fdf4', color: '#166534' },
+}
+
+function CatalogDiagnoses() {
+  const [items,   setItems]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]  = useState(null)
+  const [form,    setForm]    = useState({ name: '', description: '', severity: 'Media', isActive: true })
+  const [saving,  setSaving]  = useState(false)
+
+  const load = async () => {
+    try {
+      setLoading(true)
+      const res = await maintenanceApi.get('/catalog/diagnoses')
+      setItems(res.data)
+    } catch { setError('Error al cargar diagnósticos') }
+    finally   { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const openNew = () => {
+    setEditing(null)
+    setForm({ name: '', description: '', severity: 'Media', isActive: true })
+    setShowForm(true)
+  }
+
+  const openEdit = (item) => {
+    setEditing(item)
+    setForm({ name: item.name, description: item.description ?? '', severity: item.severity, isActive: item.isActive })
+    setShowForm(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return alert('El nombre es obligatorio.')
+    setSaving(true)
+    try {
+      if (editing) {
+        await maintenanceApi.put(`/catalog/diagnoses/${editing.id}`, form)
+      } else {
+        await maintenanceApi.post('/catalog/diagnoses', form)
+      }
+      setShowForm(false)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'Error al guardar') }
+    finally    { setSaving(false) }
+  }
+
+  const handleDelete = async (item) => {
+    if (!confirm(`¿Eliminar el diagnóstico "${item.name}"?`)) return
+    try {
+      await maintenanceApi.delete(`/catalog/diagnoses/${item.id}`)
+      load()
+    } catch (e) { alert(e.response?.data?.message ?? 'No se puede eliminar') }
+  }
+
+  if (loading) return <p className="cat-loading">Cargando...</p>
+  if (error)   return <p className="cat-error">{error}</p>
+
+  return (
+    <div className="cat-section">
+      <div className="cat-header">
+        <div>
+          <h3>Diagnósticos de Mantenimiento</h3>
+          <p>Catálogo de diagnósticos identificables en los equipos</p>
+        </div>
+        <button className="btn-primary" onClick={openNew} type="button">+ Agregar Diagnóstico</button>
+      </div>
+
+      <table className="cat-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Nombre</th><th>Descripción</th><th>Severidad</th><th className="cat-center">Estado</th><th className="cat-actions-header">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={item.id}>
+              <td>{i + 1}</td>
+              <td style={{ fontWeight: 600 }}>{item.name}</td>
+              <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{item.description ?? '—'}</td>
+              <td>
+                <span style={{
+                  padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.78rem', fontWeight: 600,
+                  background: SEVERITY_COLORS[item.severity]?.bg, color: SEVERITY_COLORS[item.severity]?.color,
+                }}>{item.severity}</span>
+              </td>
+              <td className="cat-center">
+                <span style={{ color: item.isActive ? '#166534' : '#9ca3af', fontWeight: 600, fontSize: '0.82rem' }}>
+                  {item.isActive ? '● Activo' : '○ Inactivo'}
+                </span>
+              </td>
+              <td className="cat-actions">
+                <div className="table-actions">
+                  <button className="action-icon-btn" onClick={() => openEdit(item)} title="Editar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                    </svg>
+                  </button>
+                  <button className="action-icon-btn" onClick={() => handleDelete(item)} title="Eliminar" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td colSpan={6} className="cat-empty">No hay diagnósticos registrados.</td></tr>
+          )}
+        </tbody>
+      </table>
+
+      {showForm && (
+        <div className="cat-modal-overlay">
+          <div className="cat-modal">
+            <h4>{editing ? 'Editar Diagnóstico' : 'Nuevo Diagnóstico'}</h4>
+
+            <label>Nombre *</label>
+            <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Sobrecalentamiento" />
+
+            <label>Descripción</label>
+            <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descripción detallada..." rows={3} style={{ resize: 'vertical' }} />
+
+            <label>Severidad *</label>
+            <CustomSelect
+              value={form.severity}
+              onChange={val => setForm({ ...form, severity: val })}
+              options={[
+                {
+                  value: 'Baja',
+                  label: 'Baja',
+                  badgeColor: '#166534',
+                  badgeBg: '#f0fdf4',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  ),
+                  iconColor: '#166534'
+                },
+                {
+                  value: 'Media',
+                  label: 'Media',
+                  badgeColor: '#854d0e',
+                  badgeBg: '#fef9c3',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  ),
+                  iconColor: '#854d0e'
+                },
+                {
+                  value: 'Alta',
+                  label: 'Alta',
+                  badgeColor: '#991b1b',
+                  badgeBg: '#fee2e2',
+                  icon: (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polyline points="18 15 12 9 6 15" />
+                    </svg>
+                  ),
+                  iconColor: '#991b1b'
+                }
+              ]}
+              style={{ width: '100%' }}
+            />
+
+            {editing && (
+              <>
+                <label>Estado</label>
+                <CustomSelect
+                  value={form.isActive ? 'true' : 'false'}
+                  onChange={val => setForm({ ...form, isActive: val === 'true' })}
+                  options={[
+                    {
+                      value: 'true',
+                      label: 'Activo',
+                      badgeColor: '#166534',
+                      badgeBg: '#dcfce7',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      ),
+                      iconColor: '#166534'
+                    },
+                    {
+                      value: 'false',
+                      label: 'Inactivo',
+                      badgeColor: '#64748b',
+                      badgeBg: '#f1f5f9',
+                      icon: (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                      ),
+                      iconColor: '#64748b'
+                    }
+                  ]}
+                  style={{ width: '100%' }}
+                />
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setShowForm(false)} type="button">Cancelar</button>
+              <button className="btn-primary" onClick={handleSave} disabled={saving} type="button">
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,80 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Paleta UTA */
+  --color-primary:           #C0191F;
+  --color-primary-hover:     #A01217;
+  --color-primary-active:    #800E12;
+  --color-primary-highlight: #F5D5D6;
+
+  /* Superficies */
+  --color-bg:             #FFFFFF;
+  --color-surface:        #FFFFFF;
+  --color-surface-2:      #FAFAFA;
+  --color-border:         #E5E5E5;
+
+  /* Texto */
+  --color-text:           #1A1A1A;
+  --color-text-muted:     #6B6B6B;
+  --color-text-faint:     #ADADAD;
+  --color-text-inverse:   #FFFFFF;
+
+  /* Estados */
+  --color-success:  #16A34A;
+  --color-warning:  #D97706;
+  --color-error:    #C0191F;
+  --color-info:     #2563EB;
+
+  /* Tipografía */
+  --font-body: 'Satoshi', 'Inter', sans-serif;
+
+  /* Espaciado */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Radio */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+
+  /* Sidebar */
+  --sidebar-width: 240px;
+  --topbar-height: 60px;
+
+  /* Transiciones */
+  --transition: 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html { font-size: 16px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { cursor: pointer; font: inherit; border: none; background: none; }
+input, select, textarea { font: inherit; }
+img { display: block; max-width: 100%; }
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
